@@ -38,7 +38,7 @@ sha256sum -c SHA256SUMS
 tar -xzf a-commerce-v0.1.0-deploy.tar.gz
 ```
 
-GHCR 第一次创建的包默认私有。仓库公开不自动保证镜像公开；需在 [Packages](https://github.com/juemimgcd?tab=packages) 将 `a-commerce` 的可见性设为 Public，或在服务器使用 `read:packages` 凭据执行 `docker login ghcr.io`。Actions 发包使用内置 `GITHUB_TOKEN`，无需把个人 token 存入仓库。[官方包发布说明](https://docs.github.com/en/packages/managing-github-packages-using-github-actions-workflows/publishing-and-installing-a-package-with-github-actions)。
+当前 [a-commerce 镜像包](https://github.com/juemimgcd/A-commerce/pkgs/container/a-commerce) 已确认是 Public。复用到其他仓库时仍应单独检查镜像可见性；私有镜像需在服务器使用 `read:packages` 凭据执行 `docker login ghcr.io`。Actions 发包使用内置 `GITHUB_TOKEN`，无需把个人 token 存入仓库。[官方包发布说明](https://docs.github.com/en/packages/managing-github-packages-using-github-actions-workflows/publishing-and-installing-a-package-with-github-actions)。
 
 ## 启用服务器 CD
 
