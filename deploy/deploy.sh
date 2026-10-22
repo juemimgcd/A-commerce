@@ -22,7 +22,7 @@ compose=(docker compose --env-file "$COMMERCE_ENV_FILE" -f deploy/compose.yaml)
 "${compose[@]}" config --quiet
 # 镜像下载失败时不停止正在运行的应用。
 "${compose[@]}" pull
-"${compose[@]}" up -d --wait db redis rabbitmq
+"${compose[@]}" up -d --no-recreate --wait db redis rabbitmq
 "${compose[@]}" exec -T rabbitmq rabbitmqctl set_policy -p commerce commerce-safe-dlx \
   '^commerce\.(payment|close|refund|mail|export|cache|reconcile|housekeeping)\.v1$' \
   '{"dead-letter-strategy":"at-least-once","dead-letter-exchange":"commerce.isolation.v1","overflow":"reject-publish","max-length":10000,"delivery-limit":20}' \
