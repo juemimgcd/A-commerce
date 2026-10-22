@@ -1,0 +1,33 @@
+# Prometheus rule_files 引用此文件；告警接收人和 Alertmanager 地址由部署环境配置。
+groups:
+  - name: commerce-background
+    rules:
+      - alert: CommerceBackgroundMissing
+        expr: commerce_background_alive == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "后台进程超过 45 秒没有心跳"
+          description: "检查对应 role 的进程、数据库连接与消息队列连接。"
+      - alert: CommerceOutboxStalled
+        expr: commerce_outbox_oldest_seconds > 120
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "outbox 最老消息超过两分钟未发送"
+      - alert: CommerceMoneyReview
+        expr: sum(commerce_operations{status="manual_review",kind=~"payment|close|refund|reconcile"}) > 0 or commerce_reconciliation_open > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "资金操作或对账差异需要人工复核"
+      - alert: CommerceOverdueOperations
+        expr: commerce_operations_overdue > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "任务持续超过计划执行时间"

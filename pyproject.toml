@@ -1,0 +1,65 @@
+[project]
+name = "a-commerce"
+version = "0.1.0"
+description = "Single-store commerce backend with deferred personal-agent integration"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi==0.159.1",
+    "uvicorn[standard]==0.54.0",
+    "sqlalchemy[asyncio]==2.0.55",
+    "alembic==1.20.0",
+    "asyncpg==0.32.0",
+    "redis==6.4.0",
+    "pydantic==2.14.1",
+    "pydantic-settings==2.16.1",
+    "pwdlib[argon2]==0.3.1",
+    "httpx==0.28.1",
+    "aio-pika==10.1.1",
+    "structlog==26.1.0",
+    "limits==5.8.0",
+    "prometheus-client==0.26.0",
+    "email-validator==2.3.0",
+]
+
+[project.optional-dependencies]
+observability = [
+    "opentelemetry-api==1.45.1",
+    "opentelemetry-sdk==1.45.1",
+    "opentelemetry-exporter-otlp-proto-http==1.45.1",
+]
+storage = ["boto3==1.43.117", "pillow==13.0.0"]
+mail = ["aiosmtplib==5.1.3"]
+
+[dependency-groups]
+dev = [
+    "ruff==0.17.1",
+    "mypy==1.20.2",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "pytest-cov==7.1.0",
+    "respx==0.23.1",
+    "pip-audit==2.10.1",
+]
+
+[tool.uv]
+# 以源码部署；本机设置 PYTHONPATH=src，容器已设置该路径，不发布 wheel。
+package = false
+exclude-newer = "2026-10-22T00:00:00Z"
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+plugins = ["pydantic.mypy"]

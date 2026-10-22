@@ -1,0 +1,128 @@
+name: a-commerce
+
+x-app: &app
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile
+  image: ${COMMERCE_IMAGE:-a-commerce:local}
+  env_file: ${COMMERCE_ENV_FILE:-../.env}
+  environment: &environment
+    COMMERCE_DATABASE_URL: postgresql+asyncpg://commerce:${POSTGRES_PASSWORD:?run configure_local.py}@db:5432/commerce
+    COMMERCE_REDIS_URL: redis://redis:6379/0
+    COMMERCE_AMQP_URL: amqp://commerce:${RABBITMQ_PASSWORD:?run configure_local.py}@rabbitmq:5672/commerce
+    COMMERCE_PROVIDER_URL: http://provider:8001
+    COMMERCE_FILES_DIRECTORY: /app/var/files
+  volumes: ["files:/app/var/files"]
+  restart: unless-stopped
+  stop_grace_period: 40s
+  init: true
+
+services:
+  db:
+    image: postgres:18.6@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+    environment:
+      POSTGRES_DB: commerce
+      POSTGRES_USER: commerce
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run configure_local.py}
+    ports: ["127.0.0.1:55432:5432"]
+    volumes: ["postgres:/var/lib/postgresql"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U commerce -d commerce"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    ports: ["127.0.0.1:56379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  rabbitmq:
+    image: rabbitmq:4.4.0-management-alpine@sha256:d5c8b200a061242868833c8bbdd0703534a4a06ffe654a853e33acd46c7ce258
+    environment:
+      RABBITMQ_DEFAULT_USER: commerce
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?run configure_local.py}
+      RABBITMQ_DEFAULT_VHOST: commerce
+    ports: ["127.0.0.1:55672:5672", "127.0.0.1:55673:15672"]
+    volumes: ["rabbitmq:/var/lib/rabbitmq"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  migrate:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      db: {condition: service_healthy}
+  api:
+    <<: *app
+    command: ["uvicorn", "a_commerce.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--limit-concurrency", "100", "--no-access-log"]
+    ports: ["127.0.0.1:58000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 10s
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+  relay:
+    <<: *app
+    command: ["python", "-m", "a_commerce.dispatch.main"]
+    environment:
+      <<: *environment
+      COMMERCE_DB_POOL_SIZE: 2
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      rabbitmq: {condition: service_healthy}
+  worker:
+    <<: *app
+    command: ["python", "-m", "a_commerce.workers.main"]
+    environment:
+      <<: *environment
+      COMMERCE_DB_POOL_SIZE: 4
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      rabbitmq: {condition: service_healthy}
+  worker-general:
+    <<: *app
+    command: ["python", "-m", "a_commerce.workers.main"]
+    environment:
+      <<: *environment
+      COMMERCE_DB_POOL_SIZE: 2
+      COMMERCE_WORKER_GROUP: general
+      COMMERCE_WORKER_CONCURRENCY: 2
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      rabbitmq: {condition: service_healthy}
+  worker-maintenance:
+    <<: *app
+    command: ["python", "-m", "a_commerce.workers.main"]
+    environment:
+      <<: *environment
+      COMMERCE_DB_POOL_SIZE: 2
+      COMMERCE_WORKER_GROUP: maintenance
+      COMMERCE_WORKER_CONCURRENCY: 1
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      rabbitmq: {condition: service_healthy}
+  provider:
+    <<: *app
+    command: ["uvicorn", "a_commerce.integrations.payments.simulator:create_app", "--factory", "--host", "0.0.0.0", "--port", "8001", "--limit-concurrency", "40", "--no-access-log"]
+    environment:
+      SIMULATOR_DATABASE_PATH: /app/var/provider.sqlite3
+      SIMULATOR_CALLBACK_URL: http://api:8000/api/v1/callbacks/payments/simulator
+    ports: ["127.0.0.1:58001:8001"]
+    volumes: ["provider:/app/var"]
+
+volumes:
+  postgres:
+  rabbitmq:
+  provider:
+  files:
