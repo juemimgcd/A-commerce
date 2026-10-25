@@ -19,6 +19,7 @@ from a_commerce.models.entities import Order, Shipment, ShippingEvent
 from a_commerce.schemas.api import Schema
 from a_commerce.services.events import record_event
 from a_commerce.services.identity import Principal, authorize
+from a_commerce.traffic import Limit, enforce
 
 
 class ShippingCallback(Schema):
@@ -83,6 +84,12 @@ async def callback(r: Resources, body: bytes, timestamp: str, signature: str) ->
     if not fresh or not hmac.compare_digest(expected, signature):
         raise CommerceError("INVALID_SIGNATURE", "物流回调签名无效。", 401)
     data = ShippingCallback.model_validate_json(body)
+    # 与支付回调使用不同额度；先验签，Redis 故障时依靠回调进程的本地预算继续处理。
+    await enforce(
+        r,
+        [Limit("shipping_callback", "simulator", r.settings.traffic.shipping_callback)],
+        fail_open=True,
+    )
     async with r.sessions.begin() as session:
         shipment = await session.get(Shipment, data.shipment_id)
         if shipment is None or shipment.tracking_number != data.tracking_number:

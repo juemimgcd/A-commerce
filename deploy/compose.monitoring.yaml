@@ -1,0 +1,23 @@
+# 与 compose.yaml 合并使用；管理界面只绑定 loopback，生产通知接收人另行配置。
+services:
+  prometheus:
+    image: prom/prometheus:v3.7.0@sha256:29c1e0b48ad816750245dea3d65ac3ce57dda30547e67b1e9a5176e2953cc4dc
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=7d"]
+    ports: ["127.0.0.1:${COMMERCE_PROMETHEUS_PORT:-59090}:9090"]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus-alerts.yml:/etc/prometheus/commerce-alerts.yml:ro
+      - prometheus:/prometheus
+    networks: [default, edge]
+    restart: unless-stopped
+  alertmanager:
+    image: prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    ports: ["127.0.0.1:${COMMERCE_ALERTMANAGER_PORT:-59093}:9093"]
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager:/alertmanager
+    restart: unless-stopped
+volumes:
+  prometheus:
+  alertmanager:

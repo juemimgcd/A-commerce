@@ -1,6 +1,12 @@
 # 依赖基线与版本策略
 
-检查日期：2026-10-22。已安装并锁定依赖；静态检查、数据库迁移和本机业务验证见 [实施记录](backend-implementation.md)。`pyproject.toml` 是直接依赖的唯一来源，`uv.lock` 保存传递依赖和文件哈希。
+检查日期：2026-10-22。已安装并锁定依赖；静态检查、数据库迁移和本机业务验证见 [实施记录](backend-implementation.md)。`pyproject.toml` 是应用直接依赖的唯一来源，`uv.lock` 保存传递依赖和文件哈希。
+
+2026-10-25 的 [本地 HA 演练](postgres-rabbitmq-ha.md) 另有专用 Patroni 镜像：
+`deploy/patroni/requirements.in` 固定 `patroni[etcd3]==4.1.5` 与 `psycopg[binary]==3.3.6`，
+对应 `requirements.txt` 锁定传递依赖及哈希，构建使用 `uv pip sync --require-hashes`。
+它们只进入数据库管理容器，不进入应用运行依赖。etcd 3.6.5、PostgreSQL 18.6 和
+RabbitMQ 4.4.0 镜像 digest 固定在 Compose 中。
 
 ## 1. 运行环境
 
@@ -30,7 +36,7 @@
 | httpx | 0.28.1 | 支付/物流等 HTTP 适配器 |
 | aio-pika | 10.1.1 | RabbitMQ 异步客户端、发布确认、手动消费确认与连接恢复 |
 | structlog | 26.1.0 | 结构化 JSON 日志 |
-| limits | 5.8.0 | 登录、授权与写操作等限流基础 |
+| limits | 5.8.0 | 既有锁定依赖；当前分层限流采用 redis 客户端 + Lua，以支持多 SKU 与全局额度统一判断 |
 | prometheus-client | 0.26.0 | 业务/运行指标输出 |
 | email-validator | 2.3.0 | 邮箱字段校验 |
 
@@ -106,11 +112,11 @@ uv lock --check --default-index https://pypi.org/simple
 
 | 工具 | 计划用途 | 引入条件 |
 |---|---|---|
-| Nginx 或部署平台负载均衡器 | TLS、路由、keep-alive、请求上限和入口限流 | 多实例部署基线，实施时选定一个 |
+| HAProxy 3.2.26-alpine | 路由、主动健康检查、连接上限、IP 入口限流 | 本轮加入，版本与多架构 digest 固定在 Compose；TLS 上线单独配置 |
 | RabbitMQ | durable exchange/quorum queue、确认投递、隔离队列与流量控制 | M1 纳入开发部署，M3 实现可靠消费；镜像和策略独立版本化 |
 | Prometheus + Grafana | API/DB/Redis/RabbitMQ/worker 指标、图表和告警 | M1 开始，M6 完整验收；所需 exporter/插件同期固定版本 |
 | k6 | 用户路径、并发在线用户与固定到达率压测 | 脚本实施时固定版本；独立压测端 |
 | PgBouncer | 多副本下的数据库连接管理 | 连接成为实测瓶颈，且 asyncpg/prepared statement/事务池兼容性通过后 |
 | 对象存储 / CDN | 图片与导出文件分发 | 媒体部署需要；不让 API 承担大文件流量 |
 
-当前已提供本地 Compose；网关、完整监控和压测工具尚未部署。镜像与工具版本在实施时精确固定，负载、池预算、指标与兼容性要求见 [capacity-plan.md](capacity-plan.md)。性能依赖正确的访问模式与资源配置，锁文件解析通过不构成容量证据。
+当前 Compose 已加入 HAProxy、双业务 API、专用回调 API 和独立限流 Redis，见 [部署与限流说明](traffic-deployment.md)。完整监控和压测工具尚未部署。负载、池预算、指标与兼容性要求见 [capacity-plan.md](capacity-plan.md)；配置和锁文件通过不构成容量证据。

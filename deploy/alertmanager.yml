@@ -1,0 +1,9 @@
+# 本地只接收、分组和展示告警，不向任何人发消息。生产接收器另行配置。
+route:
+  receiver: local
+  group_by: [alertname, role]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 4h
+receivers:
+  - name: local

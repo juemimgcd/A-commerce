@@ -10,6 +10,7 @@ from uuid import uuid4
 import aio_pika
 import structlog
 from pamqp.commands import Basic
+from prometheus_client import Counter
 from sqlalchemy import or_, select
 
 from a_commerce.conf.resources import Resources, resources
@@ -24,9 +25,11 @@ from a_commerce.services.orders import expire
 from a_commerce.services.scheduling import schedule
 
 log = structlog.get_logger()
+PUBLISHES = Counter("commerce_outbox_publish_total", "发布确认结果", ["kind", "outcome"])
 
 
 async def relay_one(r: Resources, exchange: aio_pika.abc.AbstractExchange) -> bool:
+    """仅确认成功时继续当前批次；空队列或发送失败结束批次，交回扫描与心跳。"""
     async with r.sessions.begin() as session:
         row = await session.scalar(
             select(Outbox)
@@ -54,17 +57,20 @@ async def relay_one(r: Resources, exchange: aio_pika.abc.AbstractExchange) -> bo
         )
     confirmed = False
     try:
-        result = await exchange.publish(
-            aio_pika.Message(
-                body=envelope.model_dump_json().encode(),
-                content_type="application/json",
-                message_id=str(envelope.message_id),
-                delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
-            ),
-            routing_key=envelope.operation_type,
-            mandatory=True,
-            timeout=5,
-        )
+        # aio-pika 的 publish timeout 不包含 robust channel 等待重连的时间。
+        # 总预算覆盖重连等待与发布确认，否则 broker 停止会卡住扫描、心跳和退出。
+        async with asyncio.timeout(5):
+            result = await exchange.publish(
+                aio_pika.Message(
+                    body=envelope.model_dump_json().encode(),
+                    content_type="application/json",
+                    message_id=str(envelope.message_id),
+                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                ),
+                routing_key=envelope.operation_type,
+                mandatory=True,
+                timeout=5,
+            )
         confirmed = isinstance(result, Basic.Ack)
     except Exception as exc:
         log.warning(
@@ -72,6 +78,7 @@ async def relay_one(r: Resources, exchange: aio_pika.abc.AbstractExchange) -> bo
             message_id=str(envelope.message_id),
             error_type=type(exc).__name__,
         )
+    PUBLISHES.labels(envelope.operation_type, "confirmed" if confirmed else "unconfirmed").inc()
     async with r.sessions.begin() as session:
         row = await session.scalar(
             select(Outbox).where(Outbox.id == envelope.message_id).with_for_update()
@@ -85,7 +92,8 @@ async def relay_one(r: Resources, exchange: aio_pika.abc.AbstractExchange) -> bo
                 row.available_at = now() + timedelta(
                     seconds=min(60, 2 ** min(row.attempts, 6)) + random.random()
                 )
-    return True
+    # broker 故障时不能连续等待 50 × 5 秒，导致扫描和心跳长期得不到执行。
+    return confirmed
 
 
 async def main() -> None:
@@ -95,7 +103,12 @@ async def main() -> None:
         asyncio.get_running_loop().add_signal_handler(sig, stop.set)
     async with resources(settings) as r:
         connection = await aio_pika.connect_robust(
-            settings.amqp_url.get_secret_value(), timeout=5, heartbeat=30
+            settings.amqp_url.get_secret_value(),
+            timeout=5,
+            heartbeat=10,
+            reconnect_interval=2,
+            interleave=1,
+            happy_eyeballs_delay=0.25,
         )
         instance, last_heartbeat = uuid4(), 0.0
         try:

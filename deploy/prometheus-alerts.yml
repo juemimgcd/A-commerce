@@ -18,7 +18,8 @@ groups:
         annotations:
           summary: "outbox 最老消息超过两分钟未发送"
       - alert: CommerceMoneyReview
-        expr: sum(commerce_operations{status="manual_review",kind=~"payment|close|refund|reconcile"}) > 0 or commerce_reconciliation_open > 0
+        # 同一数据库快照在三个 API 上重复导出，先取 max 去重。
+        expr: sum(max by (kind, status) (commerce_operations{status="manual_review",kind=~"payment|close|refund|reconcile"})) > 0 or max(commerce_reconciliation_open) > 0
         for: 1m
         labels:
           severity: critical
@@ -31,3 +32,29 @@ groups:
           severity: warning
         annotations:
           summary: "任务持续超过计划执行时间"
+  - name: commerce-runtime
+    rules:
+      - alert: CommerceScrapeMissing
+        expr: up{job=~"commerce-api|commerce-background|rabbitmq"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "服务指标采集失败"}
+      - alert: CommerceHttpErrors
+        expr: sum(rate(commerce_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(commerce_http_requests_total[5m])), 1) > 0.01
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "HTTP 5xx 比例超过 1%"}
+      - alert: CommercePoolTimeout
+        expr: increase(commerce_db_pool_timeouts_total[5m]) > 0
+        labels: {severity: warning}
+        annotations: {summary: "数据库连接池出现等待超时"}
+      - alert: CommerceQueueBacklog
+        expr: rabbitmq_queue_messages_ready > 1000
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "消息队列积压持续超过 1000 条"}
+      - alert: CommerceIsolationMessages
+        expr: rabbitmq_queue_messages{queue="commerce.isolation.v1"} > 0
+        for: 1m
+        labels: {severity: warning}
+        annotations: {summary: "隔离队列有待处理消息"}

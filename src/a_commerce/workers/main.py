@@ -65,7 +65,12 @@ async def main() -> None:
         asyncio.get_running_loop().add_signal_handler(sig, stop.set)
     async with resources(settings) as r:
         connection = await aio_pika.connect_robust(
-            settings.amqp_url.get_secret_value(), timeout=5, heartbeat=30
+            settings.amqp_url.get_secret_value(),
+            timeout=5,
+            heartbeat=10,
+            reconnect_interval=2,
+            interleave=1,
+            happy_eyeballs_delay=0.25,
         )
         channel = await connection.channel()
         # quorum queue 不支持 global QoS。每个订阅只预取一条，四个订阅合计最多四条，

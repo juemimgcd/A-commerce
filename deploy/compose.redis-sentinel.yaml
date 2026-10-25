@@ -1,0 +1,147 @@
+# 部署默认叠加此文件；裸 compose.yaml 保留宿主机直连开发环境。
+# 需要 Docker Compose >= 2.24.4（!reset），所有发现地址仅在同一容器网络可达。
+x-client: &client
+  COMMERCE_REDIS_SENTINEL__NODES: '[["sentinel-1",26379],["sentinel-2",26379],["sentinel-3",26379]]'
+  COMMERCE_REDIS_SENTINEL__CACHE_MASTER: commerce-cache
+  COMMERCE_REDIS_SENTINEL__RATE_MASTER: commerce-rate
+  COMMERCE_REDIS_SENTINEL__PASSWORD: ${REDIS_SENTINEL_PASSWORD:?run configure_local.py --redis-secrets}
+  COMMERCE_REDIS_SENTINEL__CACHE_PASSWORD: ${REDIS_CACHE_PASSWORD:?run configure_local.py --redis-secrets}
+  COMMERCE_REDIS_SENTINEL__RATE_PASSWORD: ${REDIS_RATE_PASSWORD:?run configure_local.py --redis-secrets}
+
+x-redis: &redis
+  image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+  entrypoint: ["sh", "/opt/redis-node.sh"]
+  command: []
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -qx PONG']
+    interval: 3s
+    timeout: 2s
+    retries: 30
+
+x-cache: &cache
+  REDIS_PASSWORD: ${REDIS_CACHE_PASSWORD:?run configure_local.py --redis-secrets}
+  REDIS_POLICY: allkeys-lru
+  REDIS_AOF: "no"
+  REDIS_MIN_REPLICAS: "0"
+
+x-rate: &rate
+  REDIS_PASSWORD: ${REDIS_RATE_PASSWORD:?run configure_local.py --redis-secrets}
+  REDIS_POLICY: noeviction
+  REDIS_AOF: "yes"
+  REDIS_MIN_REPLICAS: "1"
+
+x-sentinel: &sentinel
+  image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+  entrypoint: ["sh", "/opt/redis-sentinel.sh"]
+  command: []
+  restart: unless-stopped
+  depends_on:
+    redis: {condition: service_healthy}
+    redis-rate: {condition: service_healthy}
+  healthcheck:
+    test: ["CMD-SHELL", 'REDISCLI_AUTH="$$REDIS_SENTINEL_PASSWORD" redis-cli -p 26379 ping | grep -qx PONG']
+    interval: 3s
+    timeout: 2s
+    retries: 30
+
+x-sentinel-env: &sentinel-env
+  REDIS_CACHE_PASSWORD: ${REDIS_CACHE_PASSWORD:?run configure_local.py --redis-secrets}
+  REDIS_RATE_PASSWORD: ${REDIS_RATE_PASSWORD:?run configure_local.py --redis-secrets}
+  REDIS_SENTINEL_PASSWORD: ${REDIS_SENTINEL_PASSWORD:?run configure_local.py --redis-secrets}
+
+services:
+  api:
+    environment: *client
+  api-secondary:
+    environment: *client
+  api-callbacks:
+    environment: *client
+  relay:
+    environment: *client
+  worker:
+    environment: *client
+  worker-general:
+    environment: *client
+  worker-maintenance:
+    environment: *client
+  migrate:
+    environment: *client
+  redis:
+    <<: *redis
+    ports: !reset []
+    environment:
+      <<: *cache
+      REDIS_NODE: redis
+    volumes: ["redis-cache:/data", "./redis-node.sh:/opt/redis-node.sh:ro"]
+  redis-cache-replica-1:
+    <<: *redis
+    environment:
+      <<: *cache
+      REDIS_NODE: redis-cache-replica-1
+      REDIS_SEED: redis
+    volumes: ["redis-cache-replica-1:/data", "./redis-node.sh:/opt/redis-node.sh:ro"]
+    depends_on:
+      redis: {condition: service_healthy}
+  redis-cache-replica-2:
+    <<: *redis
+    environment:
+      <<: *cache
+      REDIS_NODE: redis-cache-replica-2
+      REDIS_SEED: redis
+    volumes: ["redis-cache-replica-2:/data", "./redis-node.sh:/opt/redis-node.sh:ro"]
+    depends_on:
+      redis: {condition: service_healthy}
+  redis-rate:
+    <<: *redis
+    ports: !reset []
+    environment:
+      <<: *rate
+      REDIS_NODE: redis-rate
+    volumes: ["redis-rate:/data", "./redis-node.sh:/opt/redis-node.sh:ro"]
+  redis-rate-replica-1:
+    <<: *redis
+    environment:
+      <<: *rate
+      REDIS_NODE: redis-rate-replica-1
+      REDIS_SEED: redis-rate
+    volumes: ["redis-rate-replica-1:/data", "./redis-node.sh:/opt/redis-node.sh:ro"]
+    depends_on:
+      redis-rate: {condition: service_healthy}
+  redis-rate-replica-2:
+    <<: *redis
+    environment:
+      <<: *rate
+      REDIS_NODE: redis-rate-replica-2
+      REDIS_SEED: redis-rate
+    volumes: ["redis-rate-replica-2:/data", "./redis-node.sh:/opt/redis-node.sh:ro"]
+    depends_on:
+      redis-rate: {condition: service_healthy}
+  sentinel-1:
+    <<: *sentinel
+    environment:
+      <<: *sentinel-env
+      SENTINEL_NODE: sentinel-1
+    volumes: ["sentinel-1:/data", "./redis-sentinel.sh:/opt/redis-sentinel.sh:ro"]
+  sentinel-2:
+    <<: *sentinel
+    environment:
+      <<: *sentinel-env
+      SENTINEL_NODE: sentinel-2
+    volumes: ["sentinel-2:/data", "./redis-sentinel.sh:/opt/redis-sentinel.sh:ro"]
+  sentinel-3:
+    <<: *sentinel
+    environment:
+      <<: *sentinel-env
+      SENTINEL_NODE: sentinel-3
+    volumes: ["sentinel-3:/data", "./redis-sentinel.sh:/opt/redis-sentinel.sh:ro"]
+
+volumes:
+  redis-cache:
+  redis-cache-replica-1:
+  redis-cache-replica-2:
+  redis-rate-replica-1:
+  redis-rate-replica-2:
+  sentinel-1:
+  sentinel-2:
+  sentinel-3:

@@ -1,0 +1,29 @@
+rule_files: [/etc/prometheus/commerce-alerts.yml]
+evaluation_interval: 15s
+tests:
+  - interval: 15s
+    input_series:
+      - series: 'up{job="commerce-api",instance="api-secondary:8000"}'
+        values: '0x10'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: CommerceScrapeMissing
+        exp_alerts:
+          - exp_labels:
+              job: commerce-api
+              instance: api-secondary:8000
+              severity: critical
+            exp_annotations:
+              summary: "服务指标采集失败"
+  - interval: 15s
+    input_series:
+      - series: 'commerce_operations{kind="payment",status="manual_review",instance="api:8000"}'
+        values: '1x10'
+      - series: 'commerce_operations{kind="payment",status="manual_review",instance="api-secondary:8000"}'
+        values: '1x10'
+    promql_expr_test:
+      - expr: sum(max by (kind, status) (commerce_operations{status="manual_review",kind=~"payment|close|refund|reconcile"}))
+        eval_time: 1m
+        exp_samples:
+          - labels: '{}'
+            value: 1

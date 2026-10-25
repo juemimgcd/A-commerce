@@ -1,0 +1,314 @@
+# 本地 HA 演练覆盖文件，与 compose.yaml + compose.redis-sentinel.yaml 合并。
+# 独立 PG 卷，不自动接管原单节点 postgres 卷；现有业务数据必须备份迁移。
+# Docker 会删除停止节点的 DNS 记录；稳定映射避免宿主 fake-IP 与同步 DNS 超时影响选主。
+x-ha-hosts: &ha-hosts
+  redis: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.10
+  redis-cache-replica-1: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.11
+  redis-cache-replica-2: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.12
+  redis-rate: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.13
+  redis-rate-replica-1: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.14
+  redis-rate-replica-2: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.15
+  sentinel-1: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.20
+  sentinel-2: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.21
+  sentinel-3: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.22
+  pg-1: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.30
+  pg-2: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.31
+  pg-3: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.32
+  rabbitmq: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.40
+  rabbitmq-2: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.41
+  rabbitmq-3: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.42
+  etcd-1: ${COMMERCE_DCS_PREFIX:-172.27.84}.10
+  etcd-2: ${COMMERCE_DCS_PREFIX:-172.27.84}.11
+  etcd-3: ${COMMERCE_DCS_PREFIX:-172.27.84}.12
+x-app-ha: &app-ha
+  COMMERCE_DATABASE_URL: postgresql+asyncpg://commerce:${POSTGRES_PASSWORD:?required}@/${COMMERCE_DATABASE_NAME:-commerce}?host=pg-1:5432&host=pg-2:5432&host=pg-3:5432&target_session_attrs=read-write
+  COMMERCE_AMQP_URL: amqp://commerce:${RABBITMQ_PASSWORD:?required}@rabbit-ha:5672/commerce
+
+x-etcd: &etcd
+  image: gcr.io/etcd-development/etcd:v3.6.5@sha256:042ef9c02799eb9303abf1aa99b09f09d94b8ee3ba0c2dd3f42dc4e1d3dce534
+  entrypoint: ["/usr/local/bin/etcd"]
+  restart: unless-stopped
+  networks: [coordination]
+  extra_hosts: *ha-hosts
+  healthcheck:
+    test: ["CMD", "/usr/local/bin/etcdctl", "--endpoints=http://127.0.0.1:2379", "endpoint", "health"]
+    interval: 3s
+    timeout: 3s
+    retries: 40
+x-etcd-env: &etcd-env
+  ETCD_DATA_DIR: /etcd-data
+  ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+  ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+  ETCD_INITIAL_CLUSTER: etcd-1=http://etcd-1:2380,etcd-2=http://etcd-2:2380,etcd-3=http://etcd-3:2380
+  ETCD_INITIAL_CLUSTER_TOKEN: commerce-patroni
+  ETCD_INITIAL_CLUSTER_STATE: new
+  ETCD_AUTO_COMPACTION_RETENTION: "1"
+x-patroni: &patroni
+  build:
+    context: ..
+    dockerfile: deploy/patroni/Dockerfile
+  image: ${COMMERCE_PATRONI_IMAGE:-a-commerce-patroni:local}
+  restart: unless-stopped
+  stop_grace_period: 30s
+  networks: [default, coordination]
+  extra_hosts: *ha-hosts
+  depends_on:
+    etcd-1: {condition: service_healthy}
+    etcd-2: {condition: service_healthy}
+    etcd-3: {condition: service_healthy}
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/health', timeout=2)"]
+    interval: 3s
+    timeout: 3s
+    retries: 60
+x-patroni-env: &patroni-env
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+  COMMERCE_DATABASE_NAME: ${COMMERCE_DATABASE_NAME:-commerce}
+  PATRONI_SUPERUSER_USERNAME: postgres
+  PATRONI_SUPERUSER_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?run configure_local.py --ha-secrets}
+  PATRONI_REPLICATION_USERNAME: replicator
+  PATRONI_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:?run configure_local.py --ha-secrets}
+  PATRONI_RESTAPI_AUTH: admin:${PATRONI_API_PASSWORD:?run configure_local.py --ha-secrets}
+  PATRONI_CTL_AUTH: admin:${PATRONI_API_PASSWORD:?run configure_local.py --ha-secrets}
+
+x-rabbit: &rabbit
+  image: rabbitmq:4.4.0-management-alpine@sha256:d5c8b200a061242868833c8bbdd0703534a4a06ffe654a853e33acd46c7ce258
+  restart: unless-stopped
+  extra_hosts: *ha-hosts
+  networks:
+    default:
+      aliases: [rabbit-ha]
+  healthcheck:
+    test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+    interval: 5s
+    timeout: 5s
+    retries: 40
+x-rabbit-env: &rabbit-env
+  RABBITMQ_DEFAULT_USER: commerce
+  RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?required}
+  RABBITMQ_DEFAULT_VHOST: commerce
+  RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:?run configure_local.py --ha-secrets}
+
+services:
+  db:
+    profiles: [standalone]
+  etcd-1:
+    <<: *etcd
+    networks:
+      coordination: {ipv4_address: "${COMMERCE_DCS_PREFIX:-172.27.84}.10"}
+    environment:
+      <<: *etcd-env
+      ETCD_NAME: etcd-1
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd-1:2379
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd-1:2380
+    volumes: ["etcd-1:/etcd-data"]
+  etcd-2:
+    <<: *etcd
+    networks:
+      coordination: {ipv4_address: "${COMMERCE_DCS_PREFIX:-172.27.84}.11"}
+    environment:
+      <<: *etcd-env
+      ETCD_NAME: etcd-2
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd-2:2379
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd-2:2380
+    volumes: ["etcd-2:/etcd-data"]
+  etcd-3:
+    <<: *etcd
+    networks:
+      coordination: {ipv4_address: "${COMMERCE_DCS_PREFIX:-172.27.84}.12"}
+    environment:
+      <<: *etcd-env
+      ETCD_NAME: etcd-3
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd-3:2379
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd-3:2380
+    volumes: ["etcd-3:/etcd-data"]
+  pg-1:
+    <<: *patroni
+    networks:
+      default: {ipv4_address: "${COMMERCE_BACKEND_PREFIX:-172.28.84}.30"}
+      coordination: {}
+    environment:
+      <<: *patroni-env
+      PATRONI_NAME: pg-1
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: pg-1:5432
+      PATRONI_RESTAPI_CONNECT_ADDRESS: pg-1:8008
+    volumes: ["pg-1:/var/lib/postgresql"]
+  pg-2:
+    <<: *patroni
+    networks:
+      default: {ipv4_address: "${COMMERCE_BACKEND_PREFIX:-172.28.84}.31"}
+      coordination: {}
+    environment:
+      <<: *patroni-env
+      PATRONI_NAME: pg-2
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: pg-2:5432
+      PATRONI_RESTAPI_CONNECT_ADDRESS: pg-2:8008
+    volumes: ["pg-2:/var/lib/postgresql"]
+  pg-3:
+    <<: *patroni
+    networks:
+      default: {ipv4_address: "${COMMERCE_BACKEND_PREFIX:-172.28.84}.32"}
+      coordination: {}
+    environment:
+      <<: *patroni-env
+      PATRONI_NAME: pg-3
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: pg-3:5432
+      PATRONI_RESTAPI_CONNECT_ADDRESS: pg-3:8008
+    volumes: ["pg-3:/var/lib/postgresql"]
+  db-tools:
+    image: postgres:18.6@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+    entrypoint: ["sleep", "infinity"]
+    extra_hosts: *ha-hosts
+    environment:
+      PGHOST: pg-1,pg-2,pg-3
+      PGPORT: "5432"
+      PGUSER: commerce
+      PGPASSWORD: ${POSTGRES_PASSWORD:?required}
+      PGDATABASE: ${COMMERCE_DATABASE_NAME:-commerce}
+      PGTARGETSESSIONATTRS: read-write
+      PGCONNECT_TIMEOUT: "3"
+  rabbitmq:
+    <<: *rabbit
+    hostname: rabbitmq
+    networks:
+      default:
+        aliases: [rabbit-ha]
+        ipv4_address: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.40
+    environment:
+      <<: *rabbit-env
+      RABBITMQ_NODENAME: rabbit@rabbitmq
+    # 新集群使用独立卷；不得将原单节点的 Mnesia 目录直接作为新集群种子。
+    volumes: !override
+      - rabbit-ha-1:/var/lib/rabbitmq
+      - ./rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./rabbitmq-ha.conf:/etc/rabbitmq/rabbitmq.conf:ro
+  rabbitmq-2:
+    <<: *rabbit
+    hostname: rabbitmq-2
+    networks:
+      default:
+        aliases: [rabbit-ha]
+        ipv4_address: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.41
+    environment:
+      <<: *rabbit-env
+      RABBITMQ_NODENAME: rabbit@rabbitmq-2
+    volumes:
+      - rabbit-ha-2:/var/lib/rabbitmq
+      - ./rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./rabbitmq-ha.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    depends_on:
+      rabbitmq: {condition: service_healthy}
+  rabbitmq-3:
+    <<: *rabbit
+    hostname: rabbitmq-3
+    networks:
+      default:
+        aliases: [rabbit-ha]
+        ipv4_address: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.42
+    environment:
+      <<: *rabbit-env
+      RABBITMQ_NODENAME: rabbit@rabbitmq-3
+    volumes:
+      - rabbit-ha-3:/var/lib/rabbitmq
+      - ./rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./rabbitmq-ha.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    depends_on:
+      rabbitmq: {condition: service_healthy}
+  ha-ready:
+    image: ${COMMERCE_IMAGE:-a-commerce:local}
+    env_file: ${COMMERCE_ENV_FILE:-../.env}
+    environment: *app-ha
+    extra_hosts: *ha-hosts
+    command: ["python", "scripts/check_ha.py", "--bootstrap"]
+    restart: "no"
+    depends_on:
+      pg-1: {condition: service_healthy}
+      pg-2: {condition: service_healthy}
+      pg-3: {condition: service_healthy}
+      rabbitmq-2: {condition: service_healthy}
+      rabbitmq-3: {condition: service_healthy}
+  migrate:
+    environment: *app-ha
+    extra_hosts: *ha-hosts
+    depends_on: !override
+      ha-ready: {condition: service_completed_successfully}
+  api:
+    environment: *app-ha
+    extra_hosts: *ha-hosts
+  api-secondary:
+    environment: *app-ha
+    extra_hosts: *ha-hosts
+  api-callbacks:
+    environment: *app-ha
+    extra_hosts: *ha-hosts
+  relay:
+    environment: *app-ha
+    extra_hosts: *ha-hosts
+  worker:
+    environment: *app-ha
+    extra_hosts: *ha-hosts
+  worker-general:
+    environment: *app-ha
+    extra_hosts: *ha-hosts
+  worker-maintenance:
+    environment: *app-ha
+    extra_hosts: *ha-hosts
+  redis:
+    extra_hosts: *ha-hosts
+    networks:
+      default: {ipv4_address: "${COMMERCE_BACKEND_PREFIX:-172.28.84}.10"}
+  redis-cache-replica-1:
+    extra_hosts: *ha-hosts
+    networks:
+      default: {ipv4_address: "${COMMERCE_BACKEND_PREFIX:-172.28.84}.11"}
+  redis-cache-replica-2:
+    extra_hosts: *ha-hosts
+    networks:
+      default: {ipv4_address: "${COMMERCE_BACKEND_PREFIX:-172.28.84}.12"}
+  redis-rate:
+    extra_hosts: *ha-hosts
+    networks:
+      default: {ipv4_address: "${COMMERCE_BACKEND_PREFIX:-172.28.84}.13"}
+  redis-rate-replica-1:
+    extra_hosts: *ha-hosts
+    networks:
+      default: {ipv4_address: "${COMMERCE_BACKEND_PREFIX:-172.28.84}.14"}
+  redis-rate-replica-2:
+    extra_hosts: *ha-hosts
+    networks:
+      default: {ipv4_address: "${COMMERCE_BACKEND_PREFIX:-172.28.84}.15"}
+  sentinel-1:
+    extra_hosts: *ha-hosts
+    networks:
+      default: {ipv4_address: "${COMMERCE_BACKEND_PREFIX:-172.28.84}.20"}
+  sentinel-2:
+    extra_hosts: *ha-hosts
+    networks:
+      default: {ipv4_address: "${COMMERCE_BACKEND_PREFIX:-172.28.84}.21"}
+  sentinel-3:
+    extra_hosts: *ha-hosts
+    networks:
+      default: {ipv4_address: "${COMMERCE_BACKEND_PREFIX:-172.28.84}.22"}
+networks:
+  default:
+    # 保留桥接网络的 loopback 端口映射和提供方出网；选主使用上方稳定名称映射。
+    ipam:
+      config:
+        - subnet: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.0/24
+          ip_range: ${COMMERCE_BACKEND_PREFIX:-172.28.84}.128/25
+  coordination:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${COMMERCE_DCS_PREFIX:-172.27.84}.0/24
+          ip_range: ${COMMERCE_DCS_PREFIX:-172.27.84}.128/25
+volumes:
+  etcd-1:
+  etcd-2:
+  etcd-3:
+  pg-1:
+  pg-2:
+  pg-3:
+  rabbit-ha-1:
+  rabbit-ha-2:
+  rabbit-ha-3:

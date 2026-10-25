@@ -10,7 +10,7 @@ import json
 import sqlite3
 import time
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, closing
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Literal
@@ -43,7 +43,7 @@ class IntentIn(BaseModel):
 
 def initialize(path: str) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(path, timeout=3) as db:
+    with closing(sqlite3.connect(path, timeout=3)) as db, db:
         db.execute("PRAGMA journal_mode=WAL")
         db.execute(
             "CREATE TABLE IF NOT EXISTS payments (id TEXT PRIMARY KEY, amount INTEGER NOT NULL, "
@@ -79,7 +79,7 @@ def initialize(path: str) -> None:
 def transact(
     path: str, kind: str, ident: UUID, data: IntentIn | None = None
 ) -> ProviderResult | None:
-    with sqlite3.connect(path, timeout=3) as db:
+    with closing(sqlite3.connect(path, timeout=3)) as db, db:
         # 支付/关闭/退款串行检查后提交，避免模拟器自身制造不合法的竞态结果。
         db.execute("BEGIN IMMEDIATE")
         if kind in {"get_refund", "refund"}:
@@ -188,7 +188,7 @@ def transact(
 
 
 def ledger_page(path: str, after: int, through: int | None, limit: int) -> LedgerPage:
-    with sqlite3.connect(path, timeout=3) as db:
+    with closing(sqlite3.connect(path, timeout=3)) as db, db:
         db.execute("BEGIN")
         maximum = int(
             db.execute("SELECT COALESCE(MAX(sequence),0) FROM money_ledger").fetchone()[0]

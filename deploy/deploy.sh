@@ -18,18 +18,22 @@ if [[ ! "$COMMERCE_IMAGE" =~ ^ghcr\.io/juemimgcd/a-commerce@sha256:[a-f0-9]{64}$
   exit 1
 fi
 export COMMERCE_IMAGE
-compose=(docker compose --env-file "$COMMERCE_ENV_FILE" -f deploy/compose.yaml)
+compose=(docker compose --env-file "$COMMERCE_ENV_FILE" -f deploy/compose.yaml -f deploy/compose.redis-sentinel.yaml)
 "${compose[@]}" config --quiet
 # 镜像下载失败时不停止正在运行的应用。
 "${compose[@]}" pull
-"${compose[@]}" up -d --no-recreate --wait db redis rabbitmq
+"${compose[@]}" up -d --no-recreate --wait db redis redis-rate \
+  redis-cache-replica-1 redis-cache-replica-2 redis-rate-replica-1 redis-rate-replica-2 \
+  sentinel-1 sentinel-2 sentinel-3 rabbitmq
+# PING 健康不代表发现/复制已经完成；在停写业务之前检查两个组。
+"${compose[@]}" run --rm --no-deps -T api python scripts/check_redis.py
 "${compose[@]}" exec -T rabbitmq rabbitmqctl set_policy -p commerce commerce-safe-dlx \
   '^commerce\.(payment|close|refund|mail|export|cache|reconcile|housekeeping)\.v1$' \
   '{"dead-letter-strategy":"at-least-once","dead-letter-exchange":"commerce.isolation.v1","overflow":"reject-publish","max-length":10000,"delivery-limit":20}' \
   --apply-to quorum_queues --priority 10
 
 # 先停所有写入方，随后备份业务库、provider 卷和媒体卷，最后执行迁移。
-"${compose[@]}" stop api relay worker worker-general worker-maintenance provider
+"${compose[@]}" stop gateway api api-secondary api-callbacks relay worker worker-general worker-maintenance provider
 backup="$DEPLOY_ROOT/backups/$(date -u +%Y%m%dT%H%M%SZ)-$$"
 mkdir -p "$backup"
 trap 'echo "Deployment failed. Services may be stopped; inspect logs and backup: $backup. No automatic database downgrade was attempted." >&2' ERR
@@ -41,8 +45,10 @@ if [[ -f "$DEPLOY_ROOT/current/image.env" ]]; then
 fi
 "${compose[@]}" run --rm --no-deps -T migrate
 "${compose[@]}" up -d --no-build --no-deps --wait --wait-timeout 180 \
-  api provider relay worker worker-general worker-maintenance
-curl --fail --silent --show-error --max-time 10 http://127.0.0.1:58000/health/ready
+  api api-secondary api-callbacks provider relay worker worker-general worker-maintenance
+"${compose[@]}" up -d --no-build --no-deps --wait --wait-timeout 90 gateway
+curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 2 \
+  --max-time 5 "http://127.0.0.1:${COMMERCE_GATEWAY_PORT:-58000}/health/ready"
 # 仅成功后移动 current；旧 Release 和备份均保留。
 ln -sfn "$PWD" "$DEPLOY_ROOT/current.next"
 mv -Tf "$DEPLOY_ROOT/current.next" "$DEPLOY_ROOT/current"

@@ -5,7 +5,7 @@
 ## 发布过程
 
 1. 分支 push、PR 和手动触发运行 `backend`：冻结依赖、Ruff lint/format、严格 mypy、compileall、真实空 PostgreSQL 迁移、模型一致性、依赖漏洞审计。
-2. 检查成功后验证 Compose 配置并构建 `linux/amd64` 和 `linux/arm64` 镜像。当前没有自动业务测试或容量测试。
+2. 隔离业务回归与全容器验收（含 Sentinel 自动切主）通过后，验证 Compose 并构建 `linux/amd64` 和 `linux/arm64` 镜像。容量测试仍单独验收。
 3. main 上 `pyproject.toml` 出现尚未发布的 `X.Y.Z` 版本时，推送 `ghcr.io/juemimgcd/a-commerce:vX.Y.Z` 和 `sha-<完整提交号>`，随后自动创建 Git tag 和 GitHub Release。`0.x.y` 标记为 prerelease。
 4. Release 附带源码包、部署包和 `SHA256SUMS`；部署包的 `image.env` 固定镜像 SHA-256 摘要。镜像同时生成 SBOM 和 provenance 元数据。
 5. 只有仓库变量 `DEPLOY_ENABLED=true` 才调用 staging 部署；尚未提供服务器时保持 `false`。
@@ -42,7 +42,7 @@ tar -xzf a-commerce-v0.1.0-deploy.tar.gz
 
 ## 启用服务器 CD
 
-当前没有配置服务器。此流程适用于一台独立 Ubuntu/Linux 测试服务器：已安装 Docker Engine、Compose v2、bash、curl、GNU tar/coreutils 和 `flock`；部署用户可运行 Docker。需要空闲的 58000/58001、55432、56379、55672/55673 本机端口。项目使用固定 `a-commerce-staging` Compose 名称，不能与现有本地数据混用。
+当前没有配置服务器。此流程适用于一台独立 Ubuntu/Linux 测试服务器：已安装 Docker Engine、Compose >= 2.24.4、bash、curl、GNU tar/coreutils 和 `flock`；部署用户可运行 Docker。需要空闲的 58000/58001、55432、55672/55673 本机端口，以及不冲突的网关 Docker 网段。Redis/Sentinel 只监听容器网络。项目使用固定 `a-commerce-staging` Compose 名称，不能与现有本地数据混用。
 
 1. 将部署目录设为例如 `/srv/a-commerce`，部署用户拥有该目录，创建 `shared/`。从部署包执行 `python3 scripts/configure_local.py` 生成随机 `.env`，将它移动为 `/srv/a-commerce/shared/.env`，权限保持 0600。这个配置只用于模拟支付 staging，不可复制到生产交易环境。
 2. 在仓库 **Settings → Environments → staging** 配置下面的变量和 Secrets。主机公钥必须通过可信渠道核对后保存，工作流不会自动信任 `ssh-keyscan` 返回的未知密钥。
@@ -62,10 +62,10 @@ SSH 凭据仅在部署任务中使用，`staging` 环境可自行设置审批人
 
 ## 部署行为与失败处理
 
-`deploy/deploy.sh` 拉取固定摘要的镜像、等待 PostgreSQL/Redis/RabbitMQ、设置队列策略，然后停止 API/provider/relay/三个 worker。停写期间依次保存 PG dump、provider 卷和媒体卷，执行数据库升级，再启动应用并等待 `/health/ready` 通过。成功后更新 `current` 符号链接，旧版本与 `backups/` 保留。
+`deploy/deploy.sh` 拉取固定摘要的镜像，默认叠加 `compose.redis-sentinel.yaml`，等待 PostgreSQL、两组各一主两从 Redis、三个 Sentinel、RabbitMQ；通过发现/认证/quorum/复制门禁，设置队列策略，然后停止应用写入方。停写期间依次保存 PG dump、provider 卷和媒体卷，执行数据库升级，再启动应用与网关并等待健康检查。成功后更新 `current` 符号链接，旧版本与 `backups/` 保留。已有单节点环境的首次迁移与凭证补齐按 [Redis Sentinel 手册](redis-sentinel.md) 执行，不能依赖 `--no-recreate` 自动转换。
 
 这是有维护窗口的单机部署。已有 PostgreSQL/Redis/RabbitMQ 容器不自动重建，基础设施版本升级需单独安排。就绪检查确认 API 数据库版本；Compose 同时确认其他进程运行，不等于支付、队列、全部 worker 和业务链路验收。首次启动的备份是空环境快照。备份或迁移失败后任务终止并保留现场，可能需要人工恢复停掉的服务；不要盲目重新启动旧代码。
 
 迁移成功后不能仅切换旧镜像来保证回滚。应先判断旧程序与新 schema 是否兼容；不兼容时，按 [运维手册](backend-operations.md) 在隔离库演练恢复，核实备份和资金状态后再决定恢复方式。自动部署不执行数据库 downgrade，不删除数据卷，也不宣称零停机或高可用。
 
-API/provider 及基础设施端口均只绑定服务器 loopback。对外访问需单独配置 TLS 网关、域名和访问控制；`/metrics` 与模拟提供方不应公开。真实支付、容量和生产部署仍需独立验收。
+API 只在容器网络可达，网关/provider 和基础设施端口绑定 loopback。对外访问需配置 TLS、域名和可信代理；公开网关屏蔽 `/metrics`，模拟提供方不应公开。无需迁移的业务 API 可单独滚动替换，见 [多实例部署与分层限流](traffic-deployment.md)；完整 CD 仍保留维护窗口。真实支付、容量和生产部署需独立验收。

@@ -1,14 +1,16 @@
 """应用工厂：生命周期创建资源，统一错误与观测，不在 API 启动时执行迁移。"""
 
+import asyncio
 import os
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from uuid import uuid4
 
 import httpx
 import structlog
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import (
@@ -29,9 +31,11 @@ from starlette.middleware.base import RequestResponseEndpoint
 from a_commerce import __version__
 from a_commerce.conf.resources import resources
 from a_commerce.conf.settings import Settings
+from a_commerce.dependencies import entry_limit
 from a_commerce.errors import CommerceError
 from a_commerce.observability.background import BACKGROUND_METRIC_NAMES, MetricSnapshot, collect
 from a_commerce.observability.body_limit import BodyLimitMiddleware
+from a_commerce.observability.runtime import RuntimeMetrics, pool_metrics
 from a_commerce.routers import admin, callbacks, customer, operations
 
 REQUESTS = Counter("commerce_http_requests_total", "HTTP 请求数", ["method", "route", "status"])
@@ -39,8 +43,8 @@ LATENCY = Histogram("commerce_http_seconds", "HTTP 响应耗时", ["method", "ro
 log = structlog.get_logger()
 
 
-def create_app() -> FastAPI:
-    settings = Settings()
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or Settings()
     structlog.configure(
         processors=[
             structlog.processors.TimeStamper(fmt="iso"),
@@ -56,10 +60,12 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="A-commerce 单店电商后端", version=__version__, lifespan=lifespan)
     app.add_middleware(BodyLimitMiddleware)
-    app.include_router(customer.router)
-    app.include_router(admin.router)
-    app.include_router(callbacks.router)
-    app.include_router(operations.router)
+    # 回调部署拥有独立进程与连接池，且不挂载买家/管理员路由；流量无法串入另一组。
+    if settings.api_role in {"all", "public"}:
+        for router in (customer.router, admin.router, operations.router):
+            app.include_router(router, dependencies=[Depends(entry_limit)])
+    if settings.api_role in {"all", "callbacks"}:
+        app.include_router(callbacks.router)
 
     def failure(
         request: Request, status: int, code: str, message: str, retryable: bool = False
@@ -74,7 +80,10 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(CommerceError)
     async def commerce_error(request: Request, exc: CommerceError) -> JSONResponse:
-        return failure(request, exc.status, exc.code, exc.message, exc.retryable)
+        response = failure(request, exc.status, exc.code, exc.message, exc.retryable)
+        if exc.retry_after is not None:
+            response.headers["Retry-After"] = str(exc.retry_after)
+        return response
 
     @app.exception_handler(HTTPException)
     async def http_error(request: Request, exc: HTTPException) -> JSONResponse:
@@ -137,6 +146,10 @@ def create_app() -> FastAPI:
 
     @app.get("/health/ready", tags=["运维"])
     async def ready(request: Request) -> dict[str, str]:
+        # 滚动重启先标记摘流，让网关停止分配新请求，再发送 SIGTERM 等待在途请求。
+        # 文件位于容器 /tmp，不进入共享文件卷；重建容器后不会继承旧实例的摘流状态。
+        if await asyncio.to_thread(Path("/tmp/commerce-draining").exists):
+            raise CommerceError("DRAINING", "当前实例正在退出。", 503, True)
         async with request.app.state.resources.sessions() as session:
             revision = await session.scalar(text("SELECT version_num FROM alembic_version"))
         if revision != "0005_case_fence":
@@ -160,8 +173,11 @@ def create_app() -> FastAPI:
                     ]
                 )
             )
+            body += generate_latest(
+                MetricSnapshot(pool_metrics(request.app.state.resources.engine))
+            )
         else:
-            body = generate_latest()
+            body = generate_latest(RuntimeMetrics(request.app.state.resources.engine))
         body += await collect(request.app.state.resources)
         return Response(body, media_type=CONTENT_TYPE_LATEST)
 
