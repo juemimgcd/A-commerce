@@ -6,15 +6,29 @@ from typing import Literal
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from a_commerce.conf.redis import RedisSentinelSettings
+from a_commerce.conf.traffic import TrafficSettings
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", env_prefix="COMMERCE_", extra="ignore", hide_input_in_errors=True
+        env_file=".env",
+        env_prefix="COMMERCE_",
+        env_nested_delimiter="__",
+        extra="ignore",
+        hide_input_in_errors=True,
     )
 
     environment: Literal["development", "production"] = "development"
     database_url: SecretStr
     redis_url: SecretStr
+    # 单独的 Redis 进程，不与 allkeys-lru 商品缓存共用内存淘汰策略。
+    rate_redis_url: SecretStr = SecretStr("redis://127.0.0.1:56380/0")
+    redis_sentinel: RedisSentinelSettings = Field(default_factory=RedisSentinelSettings)
+    traffic: TrafficSettings = Field(default_factory=TrafficSettings)
+    api_role: Literal["all", "public", "callbacks"] = "all"
+    # 后台容器通过独立内网端口导出指标；0 表示关闭。
+    metrics_port: int = Field(default=0, ge=0, le=65535)
     amqp_url: SecretStr
     provider_url: str = "http://provider:8001"
     provider_key: SecretStr = Field(min_length=32)

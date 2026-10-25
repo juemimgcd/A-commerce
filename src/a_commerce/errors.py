@@ -2,11 +2,20 @@
 
 
 class CommerceError(Exception):
-    def __init__(self, code: str, message: str, status: int = 409, retryable: bool = False):
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        status: int = 409,
+        retryable: bool = False,
+        *,
+        retry_after: int | None = None,
+    ):
         self.code = code
         self.message = message
         self.status = status
         self.retryable = retryable
+        self.retry_after = retry_after
         super().__init__(message)
 
 

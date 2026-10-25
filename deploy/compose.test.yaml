@@ -1,0 +1,34 @@
+# 只供 scripts/test_backend.py 使用；随机端口、临时凭证、独立项目，不读取业务 .env。
+services:
+  db:
+    image: postgres:18.6@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+    environment:
+      POSTGRES_DB: commerce_test
+      POSTGRES_USER: commerce
+      POSTGRES_PASSWORD: ${TEST_PASSWORD:?test runner required}
+    ports: ["127.0.0.1:${TEST_DB_PORT:?test runner required}:5432"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "commerce", "-d", "commerce_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 45
+  redis:
+    image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    ports: ["127.0.0.1:${TEST_REDIS_PORT:?test runner required}:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  rabbitmq:
+    image: rabbitmq:4.4.0-management-alpine@sha256:d5c8b200a061242868833c8bbdd0703534a4a06ffe654a853e33acd46c7ce258
+    environment:
+      RABBITMQ_DEFAULT_USER: commerce
+      RABBITMQ_DEFAULT_PASS: ${TEST_PASSWORD:?test runner required}
+      RABBITMQ_DEFAULT_VHOST: commerce_test
+    ports: ["127.0.0.1:${TEST_AMQP_PORT:?test runner required}:5672"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 45

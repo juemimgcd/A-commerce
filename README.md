@@ -7,6 +7,14 @@
 
 **当前状态：后端已完成交易链路，并补入对账、事件恢复和运营维护能力。** 已有定期资金核对/差异复核、订单快照/事件归档、媒体对象清理、员工管理、筛选和登录审计；新增维护 worker、持久心跳、告警规则及 CI 配置。启动方式、实际验证结果与发布缺口见 [后端实施记录](docs/backend-implementation.md)，故障处理见 [运维手册](docs/backend-operations.md)。尚未完成 1 万在线用户压测、真实支付沙箱与生产部署验收，pi 延后到 M7。
 
+多实例与流量治理已加入部署配置：HAProxy、两个业务 API、独立回调 API、独立限流 Redis，以及入口/身份/交易/SKU 分层额度。启动、故障策略、滚动替换与本轮验证见 [多实例部署与分层限流](docs/traffic-deployment.md)。这些配置不代表跨主机高可用或容量验收完成。
+
+部署脚本默认启用 [Redis Sentinel](docs/redis-sentinel.md)：缓存与限流各一主两从，三个哨兵监控两组，客户端自动发现当前主节点；裸 Compose 保留直连开发模式。单机容器切主验证与跨主机容灾分开验收。
+
+另提供 [PostgreSQL 与 RabbitMQ 高可用演练](docs/postgres-rabbitmq-ha.md)：PostgreSQL + Patroni + etcd 三节点、RabbitMQ 三节点 quorum queues，使用 `validate_deployment.py --ha` 在隔离 Docker 项目中运行故障切换、节点恢复与备份恢复测试。该覆盖配置使用独立数据卷，现有单节点业务库需要另行迁移。
+
+2026-10-25 补入隔离自动化业务回归、真实服务故障恢复验证、SQL/连接池/缓存指标、Prometheus + Alertmanager、本地负载与数据生成工具。运行方法和证据边界见 [本地后端回归与验收](docs/backend-validation.md)。服务器、真实外部集成与 1 万在线容量仍待独立验收。
+
 ## 目标
 
 买家浏览/筛选商品、维护购物车、确认报价并下单；后端处理库存、支付、履约、取消、退货退款，管理员完成商品、库存、发货和异常处理。普通购买流程独立运行。
@@ -76,6 +84,6 @@ M1–M3 达到 v0.1 内部联调目标；M1–M6 及 v1.0 功能、正确性和�
 
 ## 当前文件边界
 
-已新增 `src/a_commerce`、`alembic`、`scripts`、`deploy`。业务规则、事务边界、重试与恢复均有中文注释；接口定义可通过 `/docs` 查看。代码托管于 [juemimgcd/A-commerce](https://github.com/juemimgcd/A-commerce)，CI 通过后为新版本自动创建 tag、GHCR 镜像和 Release 部署包。未创建自动化测试文件，未修改 pi 仓库；前端与 pi 适配器待后续实施。服务器 CD 默认关闭，启用条件见发布指南。
+已新增 `src/a_commerce`、`alembic`、`scripts`、`deploy`、`tests`。业务规则、事务边界、重试与恢复均有中文注释；接口定义可通过 `/docs` 查看。代码托管于 [juemimgcd/A-commerce](https://github.com/juemimgcd/A-commerce)，CI 通过后为新版本自动创建 tag、GHCR 镜像和 Release 部署包。自动化业务回归已接入 CI 配置，未修改 pi 仓库；前端与 pi 适配器待后续实施。服务器 CD 默认关闭，启用条件见发布指南。
 
-先阅读 [启动与验证记录](docs/backend-implementation.md)，本地联调凭证保存在忽略目录 `var/local-accounts.json`，不要提交到版本库。
+当前多实例启动以 [部署与限流说明](docs/traffic-deployment.md) 为准；早期单实例联调过程见 [启动与验证记录](docs/backend-implementation.md)。原本地联调凭证保存在忽略目录 `var/local-accounts.json`，不要提交到版本库。

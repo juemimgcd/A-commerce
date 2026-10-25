@@ -7,8 +7,9 @@ x-app: &app
   image: ${COMMERCE_IMAGE:-a-commerce:local}
   env_file: ${COMMERCE_ENV_FILE:-../.env}
   environment: &environment
-    COMMERCE_DATABASE_URL: postgresql+asyncpg://commerce:${POSTGRES_PASSWORD:?run configure_local.py}@db:5432/commerce
+    COMMERCE_DATABASE_URL: postgresql+asyncpg://commerce:${POSTGRES_PASSWORD:?run configure_local.py}@db:5432/${COMMERCE_DATABASE_NAME:-commerce}
     COMMERCE_REDIS_URL: redis://redis:6379/0
+    COMMERCE_RATE_REDIS_URL: redis://redis-rate:6379/0
     COMMERCE_AMQP_URL: amqp://commerce:${RABBITMQ_PASSWORD:?run configure_local.py}@rabbitmq:5672/commerce
     COMMERCE_PROVIDER_URL: http://provider:8001
     COMMERCE_FILES_DIRECTORY: /app/var/files
@@ -17,24 +18,56 @@ x-app: &app
   stop_grace_period: 40s
   init: true
 
+# 一个容器一个 Uvicorn 进程；共享服务端会话、文件卷与限流额度。
+# 只信任网关固定地址的转发头，客户端自报 X-Forwarded-For 无效。
+x-api: &api
+  <<: *app
+  command: ["uvicorn", "a_commerce.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--limit-concurrency", "100", "--timeout-graceful-shutdown", "30", "--proxy-headers", "--forwarded-allow-ips", "${COMMERCE_GATEWAY_IP:-172.29.83.2}", "--no-access-log"]
+  environment:
+    <<: *environment
+    COMMERCE_API_ROLE: public
+    COMMERCE_DB_POOL_SIZE: 5
+  networks: [default, edge]
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+    interval: 5s
+    timeout: 4s
+    retries: 24
+    start_period: 10s
+  depends_on:
+    migrate: {condition: service_completed_successfully}
+    redis: {condition: service_healthy}
+    redis-rate: {condition: service_healthy}
+
 services:
   db:
     image: postgres:18.6@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
     environment:
-      POSTGRES_DB: commerce
+      POSTGRES_DB: ${COMMERCE_DATABASE_NAME:-commerce}
       POSTGRES_USER: commerce
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run configure_local.py}
-    ports: ["127.0.0.1:55432:5432"]
+    ports: ["127.0.0.1:${COMMERCE_POSTGRES_PORT:-55432}:5432"]
     volumes: ["postgres:/var/lib/postgresql"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U commerce -d commerce"]
+      test: ["CMD-SHELL", "pg_isready -U commerce -d ${COMMERCE_DATABASE_NAME:-commerce}"]
       interval: 3s
       timeout: 3s
       retries: 20
   redis:
     image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
     command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
-    ports: ["127.0.0.1:56379:6379"]
+    ports: ["127.0.0.1:${COMMERCE_CACHE_PORT:-56379}:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  redis-rate:
+    image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    # 换 Redis DB 编号不能隔离内存淘汰，必须独立进程。AOF 每秒刷盘仍可能丢失最后一秒。
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction", "--appendonly", "yes", "--appendfsync", "everysec"]
+    ports: ["127.0.0.1:${COMMERCE_RATE_PORT:-56380}:6379"]
+    volumes: ["redis-rate:/data"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s
@@ -46,8 +79,10 @@ services:
       RABBITMQ_DEFAULT_USER: commerce
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?run configure_local.py}
       RABBITMQ_DEFAULT_VHOST: commerce
-    ports: ["127.0.0.1:55672:5672", "127.0.0.1:55673:15672"]
-    volumes: ["rabbitmq:/var/lib/rabbitmq"]
+    ports: ["127.0.0.1:${COMMERCE_AMQP_PORT:-55672}:5672", "127.0.0.1:${COMMERCE_BROKER_UI_PORT:-55673}:15672"]
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq
+      - ./rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
@@ -60,24 +95,41 @@ services:
     depends_on:
       db: {condition: service_healthy}
   api:
-    <<: *app
-    command: ["uvicorn", "a_commerce.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--limit-concurrency", "100", "--no-access-log"]
-    ports: ["127.0.0.1:58000:8000"]
+    <<: *api
+  api-secondary:
+    <<: *api
+  api-callbacks:
+    <<: *api
+    command: ["uvicorn", "a_commerce.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--limit-concurrency", "24", "--timeout-graceful-shutdown", "30", "--proxy-headers", "--forwarded-allow-ips", "${COMMERCE_GATEWAY_IP:-172.29.83.2}", "--no-access-log"]
+    environment:
+      <<: *environment
+      COMMERCE_API_ROLE: callbacks
+      COMMERCE_DB_POOL_SIZE: 2
+  gateway:
+    image: haproxy:3.2.26-alpine@sha256:dfba86f031bd4c9039f10f8cc5de75991d1b6766d5460f0335b980408503baad
+    ports: ["127.0.0.1:${COMMERCE_GATEWAY_PORT:-58000}:8080"]
+    volumes: ["./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro"]
+    restart: unless-stopped
+    stop_grace_period: 40s
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/health/ready"]
       interval: 5s
-      timeout: 5s
-      retries: 24
-      start_period: 10s
+      timeout: 3s
+      retries: 12
+    networks:
+      edge:
+        ipv4_address: ${COMMERCE_GATEWAY_IP:-172.29.83.2}
     depends_on:
-      migrate: {condition: service_completed_successfully}
-      redis: {condition: service_healthy}
+      api: {condition: service_healthy}
+      api-secondary: {condition: service_healthy}
+      api-callbacks: {condition: service_healthy}
   relay:
     <<: *app
     command: ["python", "-m", "a_commerce.dispatch.main"]
     environment:
       <<: *environment
       COMMERCE_DB_POOL_SIZE: 2
+      COMMERCE_METRICS_PORT: 9100
     depends_on:
       migrate: {condition: service_completed_successfully}
       rabbitmq: {condition: service_healthy}
@@ -87,6 +139,7 @@ services:
     environment:
       <<: *environment
       COMMERCE_DB_POOL_SIZE: 4
+      COMMERCE_METRICS_PORT: 9100
     depends_on:
       migrate: {condition: service_completed_successfully}
       rabbitmq: {condition: service_healthy}
@@ -96,6 +149,7 @@ services:
     environment:
       <<: *environment
       COMMERCE_DB_POOL_SIZE: 2
+      COMMERCE_METRICS_PORT: 9100
       COMMERCE_WORKER_GROUP: general
       COMMERCE_WORKER_CONCURRENCY: 2
     depends_on:
@@ -107,6 +161,7 @@ services:
     environment:
       <<: *environment
       COMMERCE_DB_POOL_SIZE: 2
+      COMMERCE_METRICS_PORT: 9100
       COMMERCE_WORKER_GROUP: maintenance
       COMMERCE_WORKER_CONCURRENCY: 1
     depends_on:
@@ -117,12 +172,22 @@ services:
     command: ["uvicorn", "a_commerce.integrations.payments.simulator:create_app", "--factory", "--host", "0.0.0.0", "--port", "8001", "--limit-concurrency", "40", "--no-access-log"]
     environment:
       SIMULATOR_DATABASE_PATH: /app/var/provider.sqlite3
-      SIMULATOR_CALLBACK_URL: http://api:8000/api/v1/callbacks/payments/simulator
-    ports: ["127.0.0.1:58001:8001"]
+      SIMULATOR_CALLBACK_URL: http://gateway:8080/api/v1/callbacks/payments/simulator
+    ports: ["127.0.0.1:${COMMERCE_PROVIDER_PORT:-58001}:8001"]
     volumes: ["provider:/app/var"]
+    networks: [default, edge]
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: ${COMMERCE_EDGE_SUBNET:-172.29.83.0/24}
+          # 动态容器从高半段分配，避免 API 先启动时抢占网关固定的 .2 地址。
+          ip_range: ${COMMERCE_EDGE_RANGE:-172.29.83.128/25}
 
 volumes:
   postgres:
   rabbitmq:
   provider:
   files:
+  redis-rate:

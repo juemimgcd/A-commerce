@@ -10,22 +10,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("backup", type=Path)
     parser.add_argument("database", help="必须以 commerce_restore_ 开头")
+    parser.add_argument("--env-file", default=".env")
+    parser.add_argument("--compose-file", default="deploy/compose.yaml")
+    parser.add_argument("--compose-overlay", action="append", default=[])
+    parser.add_argument("--database-service", default="db")
+    parser.add_argument("--project-name")
     args = parser.parse_args()
     if not re.fullmatch(r"commerce_restore_[a-z0-9_]{1,40}", args.database):
         parser.error("目标必须是独立的 commerce_restore_ 开头数据库")
     if not args.backup.is_file():
         parser.error("备份文件不存在")
-    command = [
-        "docker",
-        "compose",
-        "--env-file",
-        ".env",
-        "-f",
-        "deploy/compose.yaml",
-        "exec",
-        "-T",
-        "db",
-    ]
+    command = ["docker", "compose", "--env-file", args.env_file, "-f", args.compose_file]
+    for overlay in args.compose_overlay:
+        command.extend(["-f", overlay])
+    if args.project_name:
+        command.extend(["--project-name", args.project_name])
+    command.extend(["exec", "-T", args.database_service])
     # createdb 在名称已存在时失败；没有 --clean，也不在失败后自动删除恢复现场。
     subprocess.run(
         [*command, "createdb", "-U", "commerce", "-T", "template0", args.database], check=True

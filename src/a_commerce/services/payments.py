@@ -21,6 +21,7 @@ from a_commerce.services.identity import Principal, authorize
 from a_commerce.services.inventory import move_order_stock
 from a_commerce.services.refunds import reserve_refund
 from a_commerce.services.reporting import record_money
+from a_commerce.traffic import Limit, enforce
 
 
 async def apply_payment(session: AsyncSession, order: Order, result: ProviderResult) -> None:
@@ -68,6 +69,13 @@ async def callback(r: Resources, body: bytes, timestamp: str, signature: str) ->
     if not fresh or not hmac.compare_digest(digest, signature):
         raise CommerceError("INVALID_SIGNATURE", "回调签名无效或已过期。", 401)
     data = PaymentCallback.model_validate_json(body)
+    # 先验签再消耗提供方额度，伪造请求不能耗尽合法回调桶。流控存储故障时
+    # 保留资金回调通道，由专用 API 的并发/数据库池和网关本地预算继续保护。
+    await enforce(
+        r,
+        [Limit("payment_callback", "simulator", r.settings.traffic.payment_callback)],
+        fail_open=True,
+    )
     async with r.sessions.begin() as session:
         intent = await session.get(PaymentIntent, data.intent_id)
         if intent is None:

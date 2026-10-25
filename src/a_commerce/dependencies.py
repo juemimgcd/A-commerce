@@ -1,16 +1,14 @@
 """HTTP 依赖只负责解析身份；写事务内仍需重新核验会话与权限。"""
 
-import hashlib
-from collections.abc import Awaitable
 from typing import Annotated
 
 from fastapi import Depends, Header, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from redis.exceptions import RedisError
 
 from a_commerce.conf.resources import Resources
 from a_commerce.errors import CommerceError
 from a_commerce.services.identity import Principal, resolve
+from a_commerce.traffic import Limit, enforce
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -24,16 +22,35 @@ R = Annotated[Resources, Depends(get_resources)]
 Credentials = Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]
 
 
-async def customer(r: R, credentials: Credentials) -> Principal:
+async def customer(request: Request, r: R, credentials: Credentials) -> Principal:
     if credentials is None:
         raise CommerceError("UNAUTHENTICATED", "需要 Bearer 会话。", 401)
-    return await resolve(r, credentials.credentials, "customer")
+    principal = await resolve(r, credentials.credentials, "customer")
+    await principal_limit(request, r, principal)
+    return principal
 
 
-async def staff(r: R, credentials: Credentials) -> Principal:
+async def staff(request: Request, r: R, credentials: Credentials) -> Principal:
     if credentials is None:
         raise CommerceError("UNAUTHENTICATED", "需要管理员会话。", 401)
-    return await resolve(r, credentials.credentials, "staff")
+    principal = await resolve(r, credentials.credentials, "staff")
+    await principal_limit(request, r, principal)
+    return principal
+
+
+async def principal_limit(request: Request, r: R, principal: Principal) -> None:
+    # 主体来自服务端会话，不使用客户端自报的 user_id 或随意切换的 token 作为额度键。
+    # 所有普通读/写分别共用用户预算；报价和下单再有独立额度，查询订单不被写额度挤占。
+    subject = f"{principal.kind}:{principal.id}"
+    read = request.method in {"GET", "HEAD", "OPTIONS"}
+    policy = "user_read" if read else "user_write"
+    limits = [Limit(policy, subject, getattr(r.settings.traffic, policy))]
+    route = getattr(request.scope.get("route"), "path", "")
+    if request.method == "POST" and route == "/api/v1/customer/quotes":
+        limits.append(Limit("quote_user", subject, r.settings.traffic.quote_user))
+    if request.method == "POST" and route == "/api/v1/customer/orders":
+        limits.append(Limit("order_user", subject, r.settings.traffic.order_user))
+    await enforce(r, limits, fail_open=read)
 
 
 Customer = Annotated[Principal, Depends(customer)]
@@ -46,15 +63,14 @@ Key = Annotated[
 async def sensitive_limit(request: Request, r: R) -> None:
     # 不信任任意 X-Forwarded-For；部署时由受信网关/Uvicorn 配置真实客户端地址。
     host = request.client.host if request.client else "unknown"
-    digest = hashlib.sha256(host.encode()).hexdigest()
-    script = (
-        "local n=redis.call('INCR',KEYS[1]); "
-        "if n==1 then redis.call('EXPIRE',KEYS[1],60) end; return n"
+    await enforce(r, [Limit("auth_ip", host, r.settings.traffic.auth_ip)])
+
+
+async def entry_limit(request: Request, r: R) -> None:
+    # 网关先做本地粗限流，这里补上跨 API 实例共享的 IP 额度，并在鉴权查库之前执行。
+    host = request.client.host if request.client else "unknown"
+    await enforce(
+        r,
+        [Limit("entry_ip", host, r.settings.traffic.entry_ip)],
+        fail_open=request.method in {"GET", "HEAD", "OPTIONS"},
     )
-    try:
-        result = r.redis.eval(script, 1, f"rate:auth:{digest}")
-        count = await result if isinstance(result, Awaitable) else result
-    except RedisError as exc:
-        raise CommerceError("RATE_LIMIT_UNAVAILABLE", "登录保护暂时不可用。", 503, True) from exc
-    if int(count) > 20:
-        raise CommerceError("RATE_LIMITED", "操作过于频繁，请稍后重试。", 429, True)

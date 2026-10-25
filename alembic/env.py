@@ -3,8 +3,8 @@
 import asyncio
 
 from sqlalchemy import Connection, pool
-from sqlalchemy.ext.asyncio import create_async_engine
 
+from a_commerce.conf.database import database_engine
 from a_commerce.conf.settings import Settings
 from a_commerce.models import entities  # noqa: F401
 from a_commerce.models.base import Base
@@ -18,8 +18,9 @@ def migrate(connection: Connection) -> None:
 
 
 async def online() -> None:
-    engine = create_async_engine(
-        Settings().database_url.get_secret_value(), poolclass=pool.NullPool
+    engine = database_engine(
+        Settings().database_url.get_secret_value(),
+        poolclass=pool.NullPool,
     )
     async with engine.connect() as connection:
         await connection.run_sync(migrate)

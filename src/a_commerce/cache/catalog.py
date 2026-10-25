@@ -4,11 +4,15 @@ import asyncio
 import random
 from collections.abc import Awaitable, Callable
 
+from prometheus_client import Counter, Histogram
 from redis.exceptions import RedisError
 
 from a_commerce.conf.resources import Resources
 from a_commerce.errors import CommerceError
 from a_commerce.schemas.api import ProductPage
+
+CACHE = Counter("commerce_catalog_cache_total", "目录缓存结果", ["outcome"])
+ORIGIN = Histogram("commerce_catalog_origin_seconds", "目录回源耗时")
 
 
 async def cached_catalog(
@@ -19,24 +23,29 @@ async def cached_catalog(
         key = f"{key}:g{generation}"
         cached = await r.redis.get(key)
         if cached:
+            CACHE.labels("hit").inc()
             return ProductPage.model_validate_json(cached)
     except RedisError:
-        pass
+        CACHE.labels("unavailable").inc()
+    CACHE.labels("miss").inc()
     # 所有 cache miss 共用小预算；Redis 故障时不把全部流量直接转给数据库。
     try:
         async with asyncio.timeout(0.25):
             await r.origin_slots.acquire()
     except TimeoutError as exc:
+        CACHE.labels("busy").inc()
         raise CommerceError("CATALOG_BUSY", "目录繁忙，请稍后重试。", 503, True) from exc
     try:
         # 排队后再次检查，合并同一热点 key 已经完成的回源。
         try:
             cached = await r.redis.get(key)
             if cached:
+                CACHE.labels("coalesced").inc()
                 return ProductPage.model_validate_json(cached)
         except RedisError:
             pass
-        result = await load()
+        with ORIGIN.time():
+            result = await load()
         try:
             await r.redis.set(
                 key, result.model_dump_json(), ex=r.settings.cache_seconds + random.randint(0, 5)

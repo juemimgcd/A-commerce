@@ -1,4 +1,4 @@
-# 仅检查冻结安装、静态质量、真实 PostgreSQL 迁移和依赖漏洞；不生成或运行业务测试。
+# 静态检查、迁移、依赖审计和独立真实服务回归全部通过后才允许发布镜像。
 name: backend
 on:
   push:
@@ -50,8 +50,27 @@ jobs:
       - name: Dependency audit
         run: uv run --no-sync pip-audit --local
 
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned uv in an isolated tool environment
+        run: |
+          python3 -m venv "$RUNNER_TEMP/commerce-uv"
+          "$RUNNER_TEMP/commerce-uv/bin/pip" install --disable-pip-version-check --only-binary=:all: uv==0.12.2
+          echo "$RUNNER_TEMP/commerce-uv/bin" >> "$GITHUB_PATH"
+      - name: Frozen dependencies
+        run: uv sync --frozen --no-build --extra storage --extra mail
+      - name: Disposable PostgreSQL, Redis, RabbitMQ and HTTP regressions
+        run: uv run --no-sync python scripts/test_backend.py -q -W error::ResourceWarning
+      - name: PostgreSQL, RabbitMQ, Sentinel failover and full deployment validation
+        run: uv run --no-sync python scripts/validate_deployment.py --ha
+
   container:
-    needs: check
+    needs: [check, regression]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -70,9 +89,17 @@ jobs:
           persist-credentials: false
       - name: Validate deployment configuration
         run: |
-          bash -n scripts/release.sh deploy/deploy.sh
+          bash -n scripts/release.sh deploy/deploy.sh deploy/roll-api.sh
+          sh -n deploy/redis-node.sh deploy/redis-sentinel.sh
           cp .env.example .env
           docker compose --env-file .env -f deploy/compose.yaml config --quiet
+          docker compose --env-file .env -f deploy/compose.yaml -f deploy/compose.redis-sentinel.yaml config --quiet
+          docker compose --env-file .env -f deploy/compose.yaml -f deploy/compose.redis-sentinel.yaml -f deploy/compose.ha.yaml config --quiet
+          docker compose --env-file .env -f deploy/compose.yaml -f deploy/compose.monitoring.yaml config --quiet
+          docker compose --env-file .env -f deploy/compose.yaml run --rm --no-deps gateway haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg
+          docker compose --env-file .env -f deploy/compose.yaml -f deploy/compose.monitoring.yaml run --rm --no-deps --entrypoint promtool prometheus check config /etc/prometheus/prometheus.yml
+          docker compose --env-file .env -f deploy/compose.yaml -f deploy/compose.monitoring.yaml run --rm --no-deps -v "$PWD/tests/prometheus-rules.yml:/etc/prometheus/rules-test.yml:ro" --entrypoint promtool prometheus test rules /etc/prometheus/rules-test.yml
+          docker compose --env-file .env -f deploy/compose.yaml -f deploy/compose.monitoring.yaml run --rm --no-deps --entrypoint amtool alertmanager check-config /etc/alertmanager/alertmanager.yml
           rm .env
       - name: Plan versioned release
         id: plan

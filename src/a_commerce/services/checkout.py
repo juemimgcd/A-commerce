@@ -30,6 +30,7 @@ from a_commerce.services.events import record_event
 from a_commerce.services.identity import Principal, authorize
 from a_commerce.services.operations import enqueue
 from a_commerce.services.pricing import shipping_price
+from a_commerce.traffic import Limit, enforce
 
 
 async def lock_catalog(session: AsyncSession, ids: list[UUID]) -> dict[UUID, tuple[SKU, Product]]:
@@ -61,6 +62,16 @@ async def lock_catalog(session: AsyncSession, ids: list[UUID]) -> dict[UUID, tup
 
 
 async def create_quote(r: Resources, p: Principal, data: QuoteIn) -> QuoteOut:
+    # 在获取商品锁之前限流；Redis 等待不占数据库事务。一个请求中的 SKU 去重计数，
+    # 限的是竞争请求数而非购买件数，库存数量仍由后面的数据库逻辑判断。
+    await enforce(
+        r,
+        [Limit("quote_global", "all", r.settings.traffic.quote_global)]
+        + [
+            Limit("quote_sku", str(sku_id), r.settings.traffic.quote_sku)
+            for sku_id in sorted({item.sku_id for item in data.items})
+        ],
+    )
     async with r.sessions.begin() as session:
         await authorize(session, p, lock=True)
         address = await session.scalar(
@@ -114,6 +125,25 @@ async def create_quote(r: Resources, p: Principal, data: QuoteIn) -> QuoteOut:
 
 async def place_order(r: Resources, p: Principal, data: OrderIn, key: str) -> OrderOut:
     fingerprint = hashlib.sha256(data.model_dump_json().encode()).hexdigest()
+    # 报价内容由服务端持久化且不可变，从属于当前账号的报价中读取 SKU，
+    # 不相信客户端自报 SKU。预读只用于流控；事务内仍重新验证身份、报价和幂等结果。
+    async with r.sessions() as session:
+        await authorize(session, p)
+        preview = await session.scalar(
+            select(Quote).where(Quote.id == data.quote_id, Quote.user_id == p.id)
+        )
+        if preview is None:
+            raise missing()
+        existing_id = await session.scalar(select(Order.id).where(Order.quote_id == preview.id))
+        sku_ids = sorted({UUID(str(item["sku_id"])) for item in preview.items})
+    if existing_id is None:
+        # 多个 SKU 与全局额度在同一 Lua 脚本内判断，任一不足时整组不扣额度。
+        # 已提交订单的重放跳过新建容量，但仍遵守 HTTP 用户限频并在事务内核对参数。
+        await enforce(
+            r,
+            [Limit("order_global", "all", r.settings.traffic.order_global)]
+            + [Limit("order_sku", str(sku_id), r.settings.traffic.order_sku) for sku_id in sku_ids],
+        )
     async with r.sessions.begin() as session:
         await authorize(session, p, lock=True)
         quote = await session.scalar(

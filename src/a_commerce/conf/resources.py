@@ -6,10 +6,18 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
 import httpx
+from prometheus_client import start_http_server
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+)
 
+from a_commerce.conf.database import database_engine
+from a_commerce.conf.redis import redis_client
 from a_commerce.conf.settings import Settings
+from a_commerce.observability.runtime import MeasuredPool, RuntimeMetrics, instrument
 
 
 @dataclass
@@ -17,51 +25,71 @@ class Resources:
     settings: Settings
     sessions: async_sessionmaker[AsyncSession]
     redis: Redis
+    rate_redis: Redis
     http: httpx.AsyncClient
     password_slots: asyncio.Semaphore
     origin_slots: asyncio.Semaphore
+    engine: AsyncEngine
 
 
 @asynccontextmanager
 async def resources(settings: Settings) -> AsyncIterator[Resources]:
-    engine = create_async_engine(
+    engine = database_engine(
         settings.database_url.get_secret_value(),
+        poolclass=MeasuredPool,
         pool_size=settings.db_pool_size,
         max_overflow=0,
         pool_timeout=settings.db_pool_timeout,
         pool_pre_ping=True,
-        connect_args={
-            "server_settings": {
-                "statement_timeout": "5000",
-                "lock_timeout": "1500",
-                "idle_in_transaction_session_timeout": "10000",
-            }
+        server_settings={
+            "statement_timeout": "5000",
+            "lock_timeout": "1500",
+            "idle_in_transaction_session_timeout": "10000",
         },
     )
-    redis = Redis.from_url(
-        settings.redis_url.get_secret_value(),
-        max_connections=settings.redis_connections,
-        socket_connect_timeout=1,
-        socket_timeout=1,
-        decode_responses=True,
-    )
+    instrument(engine)
+    metrics_server = None
+    metrics_thread = None
     try:
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(10, connect=2, pool=2),
-            limits=httpx.Limits(
-                max_connections=settings.http_connections,
-                max_keepalive_connections=settings.http_connections,
-            ),
-            follow_redirects=False,
-        ) as http:
+        if settings.metrics_port:
+            metrics_server, metrics_thread = start_http_server(
+                settings.metrics_port, registry=RuntimeMetrics(engine)
+            )
+        async with (
+            redis_client(
+                settings.redis_url,
+                settings.redis_sentinel,
+                rate=False,
+                max_connections=settings.redis_connections,
+            ) as redis,
+            redis_client(
+                settings.rate_redis_url,
+                settings.redis_sentinel,
+                rate=True,
+                max_connections=settings.redis_connections,
+            ) as rate_redis,
+            httpx.AsyncClient(
+                timeout=httpx.Timeout(10, connect=2, pool=2),
+                limits=httpx.Limits(
+                    max_connections=settings.http_connections,
+                    max_keepalive_connections=settings.http_connections,
+                ),
+                follow_redirects=False,
+            ) as http,
+        ):
             yield Resources(
                 settings,
                 async_sessionmaker(engine, expire_on_commit=False),
                 redis,
+                rate_redis,
                 http,
                 asyncio.Semaphore(settings.password_concurrency),
                 asyncio.Semaphore(settings.cache_origin_concurrency),
+                engine,
             )
     finally:
-        await redis.aclose()
+        if metrics_server is not None and metrics_thread is not None:
+            await asyncio.to_thread(metrics_server.shutdown)
+            metrics_server.server_close()
+            await asyncio.to_thread(metrics_thread.join, 5)
         await engine.dispose()

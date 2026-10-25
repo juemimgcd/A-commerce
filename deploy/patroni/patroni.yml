@@ -1,0 +1,50 @@
+scope: commerce-postgres
+namespace: /commerce/
+restapi:
+  listen: 0.0.0.0:8008
+etcd3:
+  hosts: etcd-1:2379,etcd-2:2379,etcd-3:2379
+bootstrap:
+  dcs:
+    ttl: 20
+    loop_wait: 3
+    retry_timeout: 3
+    maximum_lag_on_failover: 0
+    check_timeline: true
+    synchronous_mode: true
+    synchronous_mode_strict: true
+    synchronous_node_count: 1
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        wal_level: replica
+        hot_standby: "on"
+        wal_log_hints: "on"
+        max_wal_senders: 10
+        max_replication_slots: 10
+        synchronous_commit: "on"
+        password_encryption: scram-sha-256
+        max_connections: 100
+  initdb:
+    - encoding: UTF8
+    - data-checksums
+    - auth-host: scram-sha-256
+    - auth-local: trust
+  post_bootstrap: /opt/patroni/venv/bin/python /opt/patroni/bootstrap.py
+postgresql:
+  listen: 0.0.0.0:5432
+  data_dir: /var/lib/postgresql/18/patroni
+  bin_dir: /usr/lib/postgresql/18/bin
+  # 本地小库初始化不等待默认的平滑 checkpoint 周期。
+  basebackup:
+    checkpoint: fast
+  pg_hba:
+    - local all all trust
+    - host replication replicator 0.0.0.0/0 scram-sha-256
+    - host all all 0.0.0.0/0 scram-sha-256
+  # 自动 rewind 可回收旧主；失败保留现场，禁止悄悄删除数据目录重建。
+  remove_data_directory_on_rewind_failure: false
+  remove_data_directory_on_diverged_timelines: false
+watchdog:
+  mode: off
