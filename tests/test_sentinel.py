@@ -209,7 +209,8 @@ async def test_real_sentinel_failover_and_recovery() -> None:
                 if rate:
                     assert (await quote()).status_code == 201
                 # 旧主恢复，Sentinel 将其改为副本，配置重写必须跨再次重启生效。
-                await run("start", "--wait", old)
+                # up --no-recreate 保留原容器，且兼容尚无 start --wait 的 Compose v2。
+                await run("up", "-d", "--no-deps", "--no-recreate", "--wait", old)
                 await await_role(old, "slave", new)
                 await run("restart", old)
                 await await_role(old, "slave", new)
@@ -243,7 +244,7 @@ async def test_real_sentinel_failover_and_recovery() -> None:
             assert (await probe("limit", rate=True, key="callback", fail_open=True))["ok"]
             assert (await quote()).status_code == 503
             assert (await http.get("/api/v1/customer/products")).status_code == 200
-            await run("start", "--wait", *replicas)
+            await run("up", "-d", "--no-deps", "--no-recreate", "--wait", *replicas)
             await await_probe("limit", rate=True, key=secrets.token_hex(12))
             assert (await quote()).status_code == 201
             # 主节点切换后两个应用池仍共用同一限流预算。
@@ -251,7 +252,7 @@ async def test_real_sentinel_failover_and_recovery() -> None:
             assert (await probe("limit", rate=True, key=subject))["ok"]
             assert (await probe("limit", rate=True, key=subject, second=True))["ok"]
             assert (await probe("limit", rate=True, key=subject))["error"] == "RATE_LIMITED"
-            await run("start", "--wait", "sentinel-1")
+            await run("up", "-d", "--no-deps", "--no-recreate", "--wait", "sentinel-1")
             await run("exec", "-T", "api", "python", "scripts/check_redis.py")
             assert await run("ps", "-q", "api", "api-secondary", "api-callbacks") == api_ids
             report.update(

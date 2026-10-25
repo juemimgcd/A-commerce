@@ -96,7 +96,9 @@ async def test_broker_restart_keeps_unconfirmed_outbox_recoverable(
             outbox = (await session.scalars(select(Outbox))).one()
             assert outbox.sent_at is None
         await asyncio.to_thread(
-            subprocess.run, [*isolated_compose, "start", "--wait", "rabbitmq"], check=True
+            subprocess.run,
+            [*isolated_compose, "up", "-d", "--no-deps", "--no-recreate", "--wait", "rabbitmq"],
+            check=True,
         )
         async with asyncio.timeout(20):
             await connection.ready()
@@ -111,7 +113,9 @@ async def test_broker_restart_keeps_unconfirmed_outbox_recoverable(
     finally:
         await connection.close()
         await asyncio.to_thread(
-            subprocess.run, [*isolated_compose, "start", "--wait", "rabbitmq"], check=True
+            subprocess.run,
+            [*isolated_compose, "up", "-d", "--no-deps", "--no-recreate", "--wait", "rabbitmq"],
+            check=True,
         )
 
 

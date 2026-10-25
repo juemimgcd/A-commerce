@@ -185,7 +185,7 @@ async def test_postgres_and_rabbitmq_failover_recovery(tmp_path: Path) -> None:
                 "same_idempotency_key_preserved": True,
                 "one_etcd_down": True,
             }
-            await run("start", "--wait", "etcd-1", old)
+            await run("up", "-d", "--no-deps", "--no-recreate", "--wait", "etcd-1", old)
             await healthy()
             async with asyncio.timeout(60):
                 while True:
@@ -227,7 +227,7 @@ async def test_postgres_and_rabbitmq_failover_recovery(tmp_path: Path) -> None:
                         break
                     await asyncio.sleep(1)
             assert (await http.get("/api/v1/customer/profile", headers=headers)).status_code == 503
-            await run("start", "--wait", "etcd-2", "etcd-3")
+            await run("up", "-d", "--no-deps", "--no-recreate", "--wait", "etcd-2", "etcd-3")
             await healthy()
             assert not (await sql("SELECT pg_is_in_recovery() AS replica"))[0]["replica"]
             await api_ready()
@@ -266,7 +266,7 @@ async def test_postgres_and_rabbitmq_failover_recovery(tmp_path: Path) -> None:
                 "unacked_redelivered": True,
                 "existing_connection_recovered": True,
             }
-            await run("start", "--wait", old_broker)
+            await run("up", "-d", "--no-deps", "--no-recreate", "--wait", old_broker)
             await healthy()
 
             # 两节点下线失去 quorum，业务 outbox 保留；恢复后真实 relay/worker 补齐付款准备。
@@ -280,7 +280,9 @@ async def test_postgres_and_rabbitmq_failover_recovery(tmp_path: Path) -> None:
                 f"WHERE p.order_id='{queued['id']}' AND op.kind='payment'"
             )
             assert pending_rows and all(row["sent_at"] is None for row in pending_rows)
-            await run("start", "--wait", "rabbitmq-2", "rabbitmq-3")
+            await run(
+                "up", "-d", "--no-deps", "--no-recreate", "--wait", "rabbitmq-2", "rabbitmq-3"
+            )
             await healthy()
             await payment_pending(queued["id"])
             # 模拟提供方实际付款，验证恢复后的业务链路与资金分录。

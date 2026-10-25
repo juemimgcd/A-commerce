@@ -45,7 +45,9 @@ async def test_redis_process_outage_preserves_queries_and_signed_money_callbacks
         assert (await backend.get(order))["status"] == "paid"
     finally:
         await asyncio.to_thread(
-            subprocess.run, [*isolated_compose, "start", "--wait", "redis"], check=True
+            subprocess.run,
+            [*isolated_compose, "up", "-d", "--no-deps", "--no-recreate", "--wait", "redis"],
+            check=True,
         )
 
 
