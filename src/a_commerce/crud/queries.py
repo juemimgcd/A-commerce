@@ -1,13 +1,33 @@
 """短小的数据访问函数。只查询/加锁，不提交事务、不调用外部服务。"""
 
+from datetime import timedelta
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from a_commerce.conf.shop import ReturnAddress
 from a_commerce.errors import missing
-from a_commerce.models.entities import SKU, Order, OrderItem, Product, Stock
-from a_commerce.schemas.api import OrderLineOut, OrderOut, ProductOut, SKUOut
+from a_commerce.models.entities import (
+    SKU,
+    Media,
+    Order,
+    OrderItem,
+    Product,
+    Refund,
+    ReturnItem,
+    ReturnRequest,
+    Stock,
+)
+from a_commerce.schemas.api import (
+    OrderLineOut,
+    OrderOut,
+    ProductOut,
+    ReturnItemOut,
+    ReturnOut,
+    ReturnRefundOut,
+    SKUOut,
+)
 
 
 async def order_locked(session: AsyncSession, order_id: UUID) -> Order:
@@ -41,8 +61,17 @@ async def order_outputs(session: AsyncSession, orders: list[Order]) -> list[Orde
     return [
         OrderOut.model_validate(
             {
-                **{name: getattr(order, name) for name in OrderOut.model_fields if name != "items"},
+                **{
+                    name: getattr(order, name)
+                    for name in OrderOut.model_fields
+                    if name not in {"items", "return_deadline"}
+                },
                 "items": grouped.get(order.id, []),
+                "return_deadline": (
+                    order.delivered_at + timedelta(days=int(order.policy["return_days"]))
+                    if order.delivered_at
+                    else None
+                ),
             }
         )
         for order in orders
@@ -50,6 +79,7 @@ async def order_outputs(session: AsyncSession, orders: list[Order]) -> list[Orde
 
 
 async def product_outputs(session: AsyncSession, products: list[Product]) -> list[ProductOut]:
+    covers = await product_covers(session, [p.id for p in products])
     rows = (
         await session.execute(
             select(SKU, Stock)
@@ -82,6 +112,67 @@ async def product_outputs(session: AsyncSession, products: list[Product]) -> lis
             active=p.active,
             version=p.version,
             skus=by_product.get(p.id, []),
+            cover_media_id=covers.get(p.id),
         )
         for p in products
+    ]
+
+
+async def product_covers(session: AsyncSession, ids: list[UUID]) -> dict[UUID, UUID]:
+    """每页一次读取封面，不让列表对每件商品额外发起媒体请求。"""
+    if not ids:
+        return {}
+    rows = await session.execute(
+        select(Media.product_id, Media.id)
+        .where(Media.product_id.in_(ids))
+        .distinct(Media.product_id)
+        .order_by(Media.product_id, Media.created_at, Media.id)
+    )
+    return {product_id: media_id for product_id, media_id in rows}
+
+
+async def return_outputs(
+    session: AsyncSession,
+    records: list[ReturnRequest],
+    address: ReturnAddress | None,
+) -> list[ReturnOut]:
+    if not records:
+        return []
+    rows = await session.execute(
+        select(ReturnItem, OrderItem)
+        .join(OrderItem, OrderItem.id == ReturnItem.order_item_id)
+        .where(ReturnItem.return_id.in_([row.id for row in records]))
+        .order_by(ReturnItem.order_item_id)
+    )
+    grouped: dict[UUID, list[ReturnItemOut]] = {}
+    for item, original in rows:
+        grouped.setdefault(item.return_id, []).append(
+            ReturnItemOut(
+                order_item_id=original.id,
+                title=original.title,
+                attributes=original.attributes,
+                quantity=item.quantity,
+                amount_fen=original.price_fen * item.quantity,
+            )
+        )
+    refunds = {
+        row.id: ReturnRefundOut.model_validate(row)
+        for row in await session.scalars(
+            select(Refund).where(Refund.id.in_([r.refund_id for r in records if r.refund_id]))
+        )
+    }
+    return [
+        ReturnOut.model_validate(
+            {
+                **{
+                    name: getattr(row, name)
+                    for name in ReturnOut.model_fields
+                    if name not in {"items", "refund", "return_address"}
+                },
+                "items": grouped.get(row.id, []),
+                "refund": refunds.get(row.refund_id) if row.refund_id else None,
+                "return_address": address,
+            }
+        )
+        for row in records
     ]

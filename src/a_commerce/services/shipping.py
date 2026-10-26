@@ -47,11 +47,13 @@ class ShipmentDetail(ShipmentOut):
     events: list[ShippingEventOut]
 
 
-async def get_shipment(r: Resources, p: Principal, order_id: UUID) -> ShipmentDetail:
+async def get_shipment(
+    r: Resources, p: Principal, order_id: UUID, *, admin: bool = False
+) -> ShipmentDetail:
     async with r.sessions() as session:
-        await authorize(session, p)
+        await authorize(session, p, "fulfillment" if admin else None)
         order = await session.get(Order, order_id)
-        if order is None or order.user_id != p.id:
+        if order is None or (not admin and order.user_id != p.id):
             raise missing()
         shipment = await session.scalar(select(Shipment).where(Shipment.order_id == order_id))
         if shipment is None:

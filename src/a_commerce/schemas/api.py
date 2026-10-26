@@ -6,6 +6,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr, model_validator
 
+from a_commerce.conf.shop import ReturnAddress
+from a_commerce.models.snapshots import QuoteItem
+
 Quantity = Annotated[int, Field(strict=True, ge=1, le=99)]
 Money = Annotated[int, Field(strict=True, ge=1, le=100000000)]
 
@@ -36,6 +39,7 @@ class SessionOut(Schema):
     created_at: datetime
     expires_at: datetime
     revoked: bool
+    current: bool = False
 
 
 class PasswordChange(Schema):
@@ -95,6 +99,7 @@ class ProductOut(ProductIn):
     id: UUID
     version: int
     skus: list[SKUOut]
+    cover_media_id: UUID | None = None
 
 
 class ProductPage(Schema):
@@ -125,6 +130,9 @@ class CartOut(Schema):
     price_fen: int
     available: int
     active: bool
+    product_id: UUID
+    attributes: dict[str, str]
+    cover_media_id: UUID | None = None
 
 
 class QuoteLine(Schema):
@@ -145,7 +153,7 @@ class QuoteIn(Schema):
 
 class QuoteOut(Schema):
     id: UUID
-    items: list[dict[str, str | int]]
+    items: list[QuoteItem]
     address_snapshot: dict[str, str]
     shipping_fen: int
     total_fen: int
@@ -181,6 +189,9 @@ class OrderOut(Schema):
     created_at: datetime
     expires_at: datetime
     items: list[OrderLineOut]
+    policy: dict[str, str | int]
+    delivered_at: datetime | None
+    return_deadline: datetime | None
 
 
 class OrderPage(Schema):
@@ -241,6 +252,21 @@ class InspectionIn(Schema):
     note: str = Field(min_length=1, max_length=500)
 
 
+class ReturnItemOut(Schema):
+    order_item_id: UUID
+    title: str
+    attributes: dict[str, str]
+    quantity: int
+    amount_fen: int
+
+
+class ReturnRefundOut(Schema):
+    id: UUID
+    amount_fen: int
+    status: str
+    confirmed_at: datetime | None
+
+
 class ReturnOut(Schema):
     id: UUID
     order_id: UUID
@@ -250,6 +276,10 @@ class ReturnOut(Schema):
     refund_id: UUID | None
     carrier: str | None
     tracking_number: str | None
+    created_at: datetime
+    items: list[ReturnItemOut]
+    refund: ReturnRefundOut | None
+    return_address: ReturnAddress | None
 
 
 class EventOut(Schema):

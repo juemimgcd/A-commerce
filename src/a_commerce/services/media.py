@@ -12,6 +12,7 @@ from a_commerce.integrations.storage import delete_object, put, sanitize_image
 from a_commerce.models.base import now
 from a_commerce.models.entities import Audit, Media, Product, StoredObject
 from a_commerce.schemas.api import Schema
+from a_commerce.services.catalog import record_change
 from a_commerce.services.identity import Principal, authorize
 
 
@@ -75,6 +76,8 @@ async def upload(r: Resources, p: Principal, product_id: UUID, body: bytes) -> M
                 detail="图片已解码、去元数据并关联商品",
             )
         )
+        await session.flush()
+        await record_change(session, product)
         return MediaOut.model_validate(record)
 
 

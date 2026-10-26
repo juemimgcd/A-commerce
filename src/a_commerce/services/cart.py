@@ -6,7 +6,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from a_commerce.conf.resources import Resources
-from a_commerce.crud.queries import product_outputs
+from a_commerce.crud.queries import product_covers, product_outputs
 from a_commerce.errors import CommerceError, missing
 from a_commerce.models.entities import SKU, CartItem, Favorite, Product, Stock, User
 from a_commerce.schemas.api import CartOut, ProductPage
@@ -18,15 +18,20 @@ MAX_CART_ITEMS = 100
 async def get_cart(r: Resources, p: Principal) -> list[CartOut]:
     async with r.sessions() as session:
         await authorize(session, p)
-        rows = await session.execute(
-            select(CartItem, SKU, Product, Stock)
-            .join(SKU, SKU.id == CartItem.sku_id)
-            .join(Product, Product.id == SKU.product_id)
-            .join(Stock, Stock.sku_id == SKU.id)
-            .where(CartItem.user_id == p.id)
-            .order_by(CartItem.id)
-            .limit(MAX_CART_ITEMS)
+        rows = list(
+            (
+                await session.execute(
+                    select(CartItem, SKU, Product, Stock)
+                    .join(SKU, SKU.id == CartItem.sku_id)
+                    .join(Product, Product.id == SKU.product_id)
+                    .join(Stock, Stock.sku_id == SKU.id)
+                    .where(CartItem.user_id == p.id)
+                    .order_by(CartItem.id)
+                    .limit(MAX_CART_ITEMS)
+                )
+            ).all()
         )
+        covers = await product_covers(session, [product.id for _, _, product, _ in rows])
         return [
             CartOut(
                 sku_id=sku.id,
@@ -35,6 +40,9 @@ async def get_cart(r: Resources, p: Principal) -> list[CartOut]:
                 price_fen=sku.price_fen,
                 available=stock.on_hand - stock.reserved - stock.allocated,
                 active=sku.active and product.active,
+                product_id=product.id,
+                attributes=sku.attributes,
+                cover_media_id=covers.get(product.id),
             )
             for item, sku, product, stock in rows
         ]

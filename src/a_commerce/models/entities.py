@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from a_commerce.models.base import Record
+from a_commerce.models.snapshots import QuoteItem
 
 
 class User(Record):
@@ -130,7 +131,7 @@ class Quote(Record):
     address_id: Mapped[UUID] = mapped_column(ForeignKey("addresses.id"))
     address_version: Mapped[int]
     address_snapshot: Mapped[dict[str, str]] = mapped_column(JSONB)
-    items: Mapped[list[dict[str, str | int]]] = mapped_column(JSONB)
+    items: Mapped[list[QuoteItem]] = mapped_column(JSONB)
     total_fen: Mapped[int] = mapped_column(BigInteger)
     shipping_fen: Mapped[int] = mapped_column(BigInteger)
     policy: Mapped[dict[str, str | int]] = mapped_column(JSONB)

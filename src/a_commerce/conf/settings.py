@@ -3,10 +3,11 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from a_commerce.conf.redis import RedisSentinelSettings
+from a_commerce.conf.shop import ShopSettings
 from a_commerce.conf.traffic import TrafficSettings
 
 
@@ -20,6 +21,8 @@ class Settings(BaseSettings):
     )
 
     environment: Literal["development", "production"] = "development"
+    # 使用可直接跨进程传递的 JSON 文本，API 与 worker 读取同一份商家配置。
+    shop_config: str = "{}"
     database_url: SecretStr
     redis_url: SecretStr
     # 单独的 Redis 进程，不与 allkeys-lru 商品缓存共用内存淘汰策略。
@@ -69,3 +72,12 @@ class Settings(BaseSettings):
     event_retention_days: int = Field(default=90, ge=7, le=3650)
     snapshot_seconds: int = Field(default=900, ge=60, le=3600)
     orphan_grace_seconds: int = Field(default=86400, ge=3600, le=604800)
+
+    @field_validator("shop_config")
+    @classmethod
+    def validate_shop(cls, value: str) -> str:
+        return ShopSettings.model_validate_json(value).model_dump_json(exclude_none=True)
+
+    @property
+    def shop(self) -> ShopSettings:
+        return ShopSettings.model_validate_json(self.shop_config)
