@@ -8,6 +8,7 @@ from pydantic import Field
 from sqlalchemy import select, union_all, update
 
 from a_commerce.conf.resources import Resources
+from a_commerce.crud.queries import return_outputs
 from a_commerce.errors import CommerceError, missing
 from a_commerce.models.entities import (
     Audit,
@@ -126,10 +127,8 @@ async def returns(
             query = query.where(ReturnRequest.status == status)
         if cursor:
             query = query.where(ReturnRequest.id > cursor)
-        return [
-            ReturnOut.model_validate(row)
-            for row in await session.scalars(query.order_by(ReturnRequest.id).limit(limit))
-        ]
+        rows = list(await session.scalars(query.order_by(ReturnRequest.id).limit(limit)))
+        return await return_outputs(session, rows, r.settings.shop.return_address)
 
 
 async def refunds(

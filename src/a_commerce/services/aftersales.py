@@ -9,7 +9,7 @@ from pydantic import Field
 from sqlalchemy import select
 
 from a_commerce.conf.resources import Resources
-from a_commerce.crud.queries import order_locked
+from a_commerce.crud.queries import order_locked, return_outputs
 from a_commerce.errors import CommerceError, missing
 from a_commerce.models.base import now
 from a_commerce.models.entities import (
@@ -83,7 +83,7 @@ async def progress(
             "receive": ("shipped", "received"),
         }[action]
         if record.status == after:
-            return ReturnOut.model_validate(record)
+            return (await return_outputs(session, [record], r.settings.shop.return_address))[0]
         if record.status != before:
             raise CommerceError("RETURN_STATE_CONFLICT", "退货当前状态不允许该操作。")
         if action == "reject":
@@ -111,7 +111,7 @@ async def progress(
             )
         )
         await record_event(session, order, f"return.{after}")
-        return ReturnOut.model_validate(record)
+        return (await return_outputs(session, [record], r.settings.shop.return_address))[0]
 
 
 async def request_return(
@@ -133,7 +133,10 @@ async def request_return(
         if previous:
             if previous.fingerprint != fingerprint:
                 raise CommerceError("IDEMPOTENCY_CONFLICT", "同一幂等键不能用于不同退货申请。")
-            return ReturnOut.model_validate(await session.get(ReturnRequest, previous.result_id))
+            existing = await session.get(ReturnRequest, previous.result_id)
+            if existing is None:
+                raise missing()
+            return (await return_outputs(session, [existing], r.settings.shop.return_address))[0]
         if order.version != data.expected_version or order.fulfillment_status != "delivered":
             raise CommerceError("ORDER_STATE_CONFLICT", "订单版本已变化或尚未签收。")
         if order.delivered_at is None or now() > order.delivered_at + timedelta(
@@ -172,7 +175,7 @@ async def request_return(
             )
         )
         await record_event(session, order, "return.requested")
-        return ReturnOut.model_validate(record)
+        return (await return_outputs(session, [record], r.settings.shop.return_address))[0]
 
 
 async def get_return(
@@ -183,7 +186,7 @@ async def get_return(
         record = await session.get(ReturnRequest, return_id)
         if record is None or (not admin and record.user_id != p.id):
             raise missing()
-        return ReturnOut.model_validate(record)
+        return (await return_outputs(session, [record], r.settings.shop.return_address))[0]
 
 
 async def inspect(r: Resources, p: Principal, return_id: UUID, data: InspectionIn) -> ReturnOut:
@@ -195,7 +198,7 @@ async def inspect(r: Resources, p: Principal, return_id: UUID, data: InspectionI
         order = await order_locked(session, record.order_id)
         await session.refresh(record, with_for_update=True)
         if record.status == "inspected":
-            return ReturnOut.model_validate(record)
+            return (await return_outputs(session, [record], r.settings.shop.return_address))[0]
         if record.status != "received":
             raise CommerceError("RETURN_STATE_CONFLICT", "当前退货不可验收。")
         rows = list(
@@ -241,4 +244,4 @@ async def inspect(r: Resources, p: Principal, return_id: UUID, data: InspectionI
             Audit(actor_id=p.id, action="return.inspect", resource_id=record.id, detail=data.note)
         )
         await record_event(session, order, "return.inspected")
-        return ReturnOut.model_validate(record)
+        return (await return_outputs(session, [record], r.settings.shop.return_address))[0]

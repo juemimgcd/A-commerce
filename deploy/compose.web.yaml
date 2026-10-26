@@ -1,0 +1,32 @@
+# Use together with compose.yaml. Next is private; the gateway supplies the client IP.
+services:
+  web:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: ${COMMERCE_WEB_IMAGE:-a-commerce-web:local}
+    environment:
+      COMMERCE_API_ORIGIN: http://gateway:8080
+      COMMERCE_WEB_ORIGIN: ${COMMERCE_WEB_ORIGIN:-http://127.0.0.1:58080}
+      COMMERCE_TRUST_GATEWAY: "true"
+      COMMERCE_INDEXABLE: ${COMMERCE_INDEXABLE:-false}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    networks:
+      edge:
+        ipv4_address: ${COMMERCE_WEB_IP:-172.29.83.3}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 4s
+      retries: 12
+    depends_on:
+      api: {condition: service_healthy}
+  gateway:
+    ports: ["127.0.0.1:${COMMERCE_WEB_PORT:-58080}:8082"]
+    environment:
+      COMMERCE_WEB_IP: ${COMMERCE_WEB_IP:-172.29.83.3}
+    volumes: ["./haproxy.web.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro"]
+    depends_on:
+      web: {condition: service_healthy}

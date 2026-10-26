@@ -184,7 +184,10 @@ async def sessions(r: Resources, p: Principal) -> list[SessionOut]:
         rows = await session.scalars(
             select(Session).where(owner == p.id).order_by(Session.created_at.desc()).limit(100)
         )
-        return [SessionOut.model_validate(row) for row in rows]
+        return [
+            SessionOut.model_validate(row).model_copy(update={"current": row.id == p.session_id})
+            for row in rows
+        ]
 
 
 async def change_password(r: Resources, p: Principal, data: PasswordChange) -> None:

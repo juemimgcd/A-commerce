@@ -25,6 +25,7 @@ from a_commerce.models.entities import (
     Stock,
     StockMovement,
 )
+from a_commerce.models.snapshots import QuoteItem
 from a_commerce.schemas.api import OrderIn, OrderOut, QuoteIn, QuoteOut
 from a_commerce.services.events import record_event
 from a_commerce.services.identity import Principal, authorize
@@ -82,7 +83,7 @@ async def create_quote(r: Resources, p: Principal, data: QuoteIn) -> QuoteOut:
         if address is None:
             raise missing()
         catalog = await lock_catalog(session, [item.sku_id for item in data.items])
-        items: list[dict[str, str | int]] = []
+        items: list[QuoteItem] = []
         for line in sorted(data.items, key=lambda item: item.sku_id):
             sku, product = catalog[line.sku_id]
             items.append(
@@ -93,6 +94,7 @@ async def create_quote(r: Resources, p: Principal, data: QuoteIn) -> QuoteOut:
                     "quantity": line.quantity,
                     "price_fen": sku.price_fen,
                     "title": product.title,
+                    "attributes": sku.attributes,
                 }
             )
         subtotal = sum(int(i["price_fen"]) * int(i["quantity"]) for i in items)
