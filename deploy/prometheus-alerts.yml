@@ -58,3 +58,79 @@ groups:
         for: 1m
         labels: {severity: warning}
         annotations: {summary: "隔离队列有待处理消息"}
+  - name: commerce-redis
+    rules:
+      # /scrape 返回 HTTP 200 不代表 Redis 可达，必须同时检查 redis_up。
+      - alert: CommerceRedisUnavailable
+        expr: up{job=~"commerce-redis-.*"} == 0 or redis_up{job=~"commerce-redis-.*"} == 0 or redis_exporter_last_scrape_error{job=~"commerce-redis-.*"} != 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "Redis 或 Sentinel 节点无法采集"}
+      - alert: CommerceRedisMemoryHigh
+        expr: redis_memory_used_bytes{job=~"commerce-redis-(cache|rate)"} / redis_memory_max_bytes > 0.8
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "Redis 内存超过 maxmemory 的 80%"}
+      - alert: CommerceRedisRateMemoryCritical
+        expr: redis_memory_used_bytes{redis_group="rate"} / redis_memory_max_bytes > 0.9
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "限流 Redis 内存超过 90%，接近拒绝写入"}
+      - alert: CommerceRedisWriteRejected
+        # Errorstats 首次出错才创建序列；缺失不是 0，increase 无法计算首批错误。
+        # 除持续增长外，首次观测到的非零计数也告警，五分钟后无新增则解除。
+        expr: |
+          increase(redis_errors_total{job=~"commerce-redis-(cache|rate)",err=~"OOM|MISCONF|NOREPLICAS"}[5m]) > 0
+          or
+          (
+            redis_errors_total{job=~"commerce-redis-(cache|rate)",err=~"OOM|MISCONF|NOREPLICAS"} > 0
+            unless
+            redis_errors_total{job=~"commerce-redis-(cache|rate)",err=~"OOM|MISCONF|NOREPLICAS"} offset 5m
+          )
+        labels: {severity: critical}
+        annotations: {summary: "Redis 因内存、持久化或副本不足拒绝命令"}
+      - alert: CommerceRedisReplicationLinkDown
+        expr: redis_master_link_up{job=~"commerce-redis-(cache|rate)"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "Redis 副本与主节点的复制链路断开"}
+      - alert: CommerceRedisReplicaLag
+        # 此 lag 是副本 ACK 间隔，不是业务数据精确延迟。
+        expr: redis_connected_slave_lag_seconds{job=~"commerce-redis-(cache|rate)"} > 5
+        for: 1m
+        labels: {severity: warning}
+        annotations: {summary: "Redis 副本确认延迟超过 5 秒"}
+      - alert: CommerceRedisPersistenceFailed
+        expr: redis_rdb_last_bgsave_status{job=~"commerce-redis-(cache|rate)"} == 0 or redis_aof_last_write_status{redis_group="rate"} == 0 or redis_aof_last_bgrewrite_status{redis_group="rate"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "Redis RDB 保存或 AOF 写入、重写失败"}
+      - alert: CommerceRedisAofFsyncDelayed
+        expr: increase(redis_aof_delayed_fsync{redis_group="rate"}[5m]) > 0
+        labels: {severity: warning}
+        annotations: {summary: "限流 Redis 出现 AOF fsync 延迟"}
+      - alert: CommerceRedisSlowCommands
+        # SLOWLOG ID 是递增序号；不把有上限的 slowlog_length 当累计计数。
+        expr: increase(redis_slowlog_last_id{job=~"commerce-redis-(cache|rate)"}[5m]) > 10
+        labels: {severity: warning}
+        annotations: {summary: "Redis 五分钟新增慢命令超过 10 条"}
+      - alert: CommerceRedisSentinelQuorumLost
+        expr: redis_sentinel_master_ckquorum_status{job="commerce-redis-sentinel"} == 0
+        for: 30s
+        labels: {severity: critical}
+        annotations: {summary: "Sentinel 无法满足故障切换的 quorum 或多数派"}
+      - alert: CommerceRedisSentinelTopology
+        expr: redis_sentinel_masters{job="commerce-redis-sentinel"} != 2 or redis_sentinel_master_status{job="commerce-redis-sentinel"} == 0 or redis_sentinel_tilt{job="commerce-redis-sentinel"} != 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "Sentinel 主节点状态、监控组数量或时钟保护异常"}
+      - alert: CommerceRedisReplicaMissing
+        expr: redis_sentinel_master_ok_slaves{job="commerce-redis-sentinel"} < 2
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: "Redis 组不足两个健康副本"}
+      - alert: CommerceRedisRateNoReplica
+        expr: redis_sentinel_master_ok_slaves{job="commerce-redis-sentinel",master_name="commerce-rate"} < 1
+        for: 30s
+        labels: {severity: critical}
+        annotations: {summary: "限流 Redis 无健康副本，写入可能被拒绝"}

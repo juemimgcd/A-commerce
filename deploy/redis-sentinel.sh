@@ -30,4 +30,11 @@ sentinel failover-timeout commerce-rate 60000
 sentinel parallel-syncs commerce-rate 1
 EOF
 fi
+# 显式保留 Redis 默认保护，不改动 Sentinel 保存的选主与发现状态。
+temporary=$(mktemp /data/sentinel.conf.XXXXXX)
+trap 'rm -f "$temporary"' EXIT HUP INT TERM
+awk '!($1 == "sentinel" && $2 == "deny-scripts-reconfig")' /data/sentinel.conf > "$temporary"
+printf '\nsentinel deny-scripts-reconfig yes\n' >> "$temporary"
+mv "$temporary" /data/sentinel.conf
+trap - EXIT HUP INT TERM
 exec /usr/local/bin/docker-entrypoint.sh redis-server /data/sentinel.conf --sentinel

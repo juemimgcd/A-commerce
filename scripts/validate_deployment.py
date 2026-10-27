@@ -15,6 +15,47 @@ import httpx
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def wait_for_redis_monitoring(client: httpx.Client, prometheus_url: str) -> list[dict[str, str]]:
+    expected = {
+        ("commerce-redis-cache", "redis:6379"),
+        ("commerce-redis-cache", "redis-cache-replica-1:6379"),
+        ("commerce-redis-cache", "redis-cache-replica-2:6379"),
+        ("commerce-redis-rate", "redis-rate:6379"),
+        ("commerce-redis-rate", "redis-rate-replica-1:6379"),
+        ("commerce-redis-rate", "redis-rate-replica-2:6379"),
+        ("commerce-redis-sentinel", "sentinel-1:26379"),
+        ("commerce-redis-sentinel", "sentinel-2:26379"),
+        ("commerce-redis-sentinel", "sentinel-3:26379"),
+    }
+    # 必须看到本次检查开始后的成功样本，不能复用故障前的旧采集结果。
+    started_at = time.time()
+    query = (
+        '(redis_up{job=~"commerce-redis-.*"} == 1) '
+        "and on(job, instance) (max by(job, instance) "
+        '(redis_exporter_last_scrape_error{job=~"commerce-redis-.*"}) == 0) '
+        'and on(job, instance) (timestamp(redis_up{job=~"commerce-redis-.*"}) '
+        f">= {started_at})"
+    )
+    deadline = time.monotonic() + 120
+    while True:
+        response = client.get(prometheus_url + "/api/v1/query", params={"query": query})
+        response.raise_for_status()
+        payload = response.json()
+        if payload.get("status") != "success" or payload["data"]["resultType"] != "vector":
+            raise RuntimeError("Redis monitoring query did not return a successful vector")
+        samples = payload["data"]["result"]
+        healthy = {(sample["metric"]["job"], sample["metric"]["instance"]) for sample in samples}
+        if healthy == expected and len(samples) == len(expected):
+            return [{"job": job, "instance": instance} for job, instance in sorted(healthy)]
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                "Redis monitoring did not recover: "
+                f"missing/unhealthy={sorted(expected - healthy)}, "
+                f"unexpected={sorted(healthy - expected)}"
+            )
+        time.sleep(2)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--load-users", type=int, default=4)
@@ -188,15 +229,18 @@ def main() -> None:
                     targets = client.get(urls["prometheus"] + "/api/v1/targets").json()["data"][
                         "activeTargets"
                     ]
-                    if len(targets) == 8 and all(target["health"] == "up" for target in targets):
+                    if len(targets) == 17 and all(target["health"] == "up" for target in targets):
                         break
                     if time.monotonic() >= deadline:
-                        raise RuntimeError("not all eight monitoring targets became healthy")
+                        raise RuntimeError("not all seventeen monitoring targets became healthy")
                     time.sleep(2)
                 report["scrape_targets"] = [
                     {"job": target["labels"]["job"], "health": target["health"]}
                     for target in targets
                 ]
+                report["redis_monitoring_initial"] = wait_for_redis_monitoring(
+                    client, urls["prometheus"]
+                )
                 subprocess.run(
                     [
                         *compose,
@@ -247,6 +291,9 @@ def main() -> None:
                     check=True,
                 )
                 report["sentinel"] = json.loads((output / "sentinel.json").read_text())
+                report["redis_monitoring_after_failover"] = wait_for_redis_monitoring(
+                    client, urls["prometheus"]
+                )
                 if args.ha:
                     subprocess.run(
                         [

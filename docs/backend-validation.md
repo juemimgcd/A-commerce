@@ -64,7 +64,8 @@ docker compose --env-file .env -f deploy/compose.yaml -f deploy/compose.redis-se
 ```
 
 Prometheus 默认监听 `127.0.0.1:59090`，Alertmanager 监听 `127.0.0.1:59093`。
-抓取三个 API、relay、三组 worker 和 RabbitMQ 共八个目标。RabbitMQ 启用
+抓取三个 API、relay、三组 worker 和 RabbitMQ，以及六个 Redis 数据节点、三个 Sentinel，
+共 17 个目标。Redis exporter 的认证、指标边界与配置升级见 [Redis 监控](redis-sentinel.md#redis-监控)。RabbitMQ 启用
 `rabbitmq_prometheus` 并抓取 per-object 指标；配置依据为
 [RabbitMQ 官方文档](https://www.rabbitmq.com/docs/prometheus)和
 [Prometheus 配置文档](https://prometheus.io/docs/prometheus/latest/configuration/configuration/)。
@@ -82,7 +83,7 @@ uv run --no-sync python scripts/validate_deployment.py
 
 入口创建随机独立项目、凭证、卷、loopback 端口和网段，构建本机镜像并依次：
 
-1. 检查 Prometheus/Alertmanager 配置及规则样例，等待八个指标目标健康。
+1. 检查 Prometheus/Alertmanager 配置及规则样例，等待 17 个指标目标健康。
 2. 验证两组 Redis 的哨兵发现与复制；在独立库生成数据，执行真实切主、原主恢复与无副本失败关闭回归，然后执行完整购买负载。
 3. 核对订单占用与库存、实收与资金分录一致。
 4. 停止一个 API，等待失败告警到达 Alertmanager，检查剩余实例仍可查询。
