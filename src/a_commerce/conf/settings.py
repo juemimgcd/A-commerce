@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     operation_max_attempts: int = Field(default=12, ge=1, le=100)
     backlog_limit: int = Field(default=1000, ge=1)
     cache_seconds: int = Field(default=30, ge=1, le=300)
+    # 逻辑过期后的最长可用时间；访问不会延长这两个期限。
+    cache_stale_seconds: int = Field(default=120, ge=1, le=3600)
     cache_origin_concurrency: int = Field(default=4, ge=1, le=20)
     password_concurrency: int = Field(default=2, ge=1, le=8)
     return_days: int = Field(default=7, ge=1, le=30)

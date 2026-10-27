@@ -133,11 +133,17 @@ async def list_products(
 
 
 async def get_product(r: Resources, product_id: UUID) -> ProductOut:
-    async with r.sessions() as session:
-        product = await session.get(Product, product_id)
-        if product is None or not product.active:
-            raise missing()
-        return (await product_outputs(session, [product]))[0]
+    async def load() -> ProductPage:
+        async with r.sessions() as session:
+            product = await session.get(Product, product_id)
+            if product is None or not product.active:
+                return ProductPage(items=[])
+            return ProductPage(items=await product_outputs(session, [product]))
+
+    page = await cached_catalog(r, f"catalog:product:{product_id}", load)
+    if not page.items:
+        raise missing()
+    return page.items[0]
 
 
 async def save_product(

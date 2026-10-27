@@ -3,7 +3,7 @@
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import httpx
 from prometheus_client import start_http_server
@@ -30,6 +30,7 @@ class Resources:
     password_slots: asyncio.Semaphore
     origin_slots: asyncio.Semaphore
     engine: AsyncEngine
+    cache_refreshes: dict[str, asyncio.Task[None]] = field(default_factory=dict)
 
 
 @asynccontextmanager
@@ -77,7 +78,7 @@ async def resources(settings: Settings) -> AsyncIterator[Resources]:
                 follow_redirects=False,
             ) as http,
         ):
-            yield Resources(
+            shared = Resources(
                 settings,
                 async_sessionmaker(engine, expire_on_commit=False),
                 redis,
@@ -87,6 +88,13 @@ async def resources(settings: Settings) -> AsyncIterator[Resources]:
                 asyncio.Semaphore(settings.cache_origin_concurrency),
                 engine,
             )
+            try:
+                yield shared
+            finally:
+                tasks = list(shared.cache_refreshes.values())
+                for task in tasks:
+                    task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
     finally:
         if metrics_server is not None and metrics_thread is not None:
             await asyncio.to_thread(metrics_server.shutdown)
