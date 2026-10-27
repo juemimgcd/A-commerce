@@ -111,6 +111,12 @@ exporter 不映射宿主机端口；密码通过环境注入，不放进 Prometh
 副本 ACK 延迟、缺少副本、RDB/AOF 失败、fsync 延迟、慢命令、Sentinel quorum/拓扑/TILT。
 阈值是初始运维预算，需按实际流量调整；告警仍投递到现有本地 Alertmanager 接收器。
 
+`redis_errors_total{err="..."}` 在首次发生相应类型错误后才出现，不预先导出零值。
+拒写告警同时检查五分钟增量和首次观测到的非零计数，避免第一批错误没有零值基线而漏报。
+首次观测分支在五分钟历史中已有该序列后退出，无新增错误时解除；持续增长仍由增量分支处理。
+首次启用监控或长时间采集中断后，已有的非零历史计数也可能触发这段保守告警窗口，
+不能仅凭此分支断言错误刚刚发生。错误类型仍限定为 OOM、MISCONF、NOREPLICAS。
+
 常用 PromQL（使用 `redis_group`、`instance` 区分组和节点）：
 
 ```promql
@@ -153,6 +159,10 @@ uv run --no-sync python scripts/validate_deployment.py
 两个已有连接池恢复、API 不重启、切主窗口读写行为、原主归队及配置跨重启保存、
 所有副本失联时限流失败关闭、恢复后多个池共享额度。
 全容器验收同时验证原有支付模拟链路、库存/资金一致性、监控和 API 滚动替换。
+监控验收在初始启动及 Sentinel 故障恢复后，逐一核对九个预期节点的
+`redis_up=1` 和 `redis_exporter_last_scrape_error=0`，且必须获得检查开始之后的新样本。
+缺失、认证失败、采集错误、旧样本或错误的节点集合均不能通过；HTTP 抓取成功不代替 Redis 健康。
+节点清单分别保存在报告的 `redis_monitoring_initial` 和 `redis_monitoring_after_failover`。
 
 报告位于 `var/validation/commerce-acceptance-*/sentinel.json` 和 `sentinel-junit.xml`。
 `check_redis.py` 检查每个 Sentinel 的 quorum、两个主节点及各两条在线复制连接；
@@ -172,6 +182,12 @@ uv run --no-sync python scripts/validate_deployment.py
 原始证据在 `var/validation/commerce-acceptance-20261027t105157z-67c5da/`：
 `result.json`、`sentinel.json`、`redis-metrics-after-failover.json`、`redis-rules.json`。
 临时容器及卷已清理；未修改测试文件，未部署生产环境。
+
+同日 PR review 修复后的验收项目为 `commerce-acceptance-20261027t111220z-bcc905`。
+初始及切主恢复后的九节点指标核对、7 项 Sentinel 验证、购买核对及滚动恢复全部通过。
+现有故障演练产生首批 NOREPLICAS 错误后，旧增量表达式返回空，新告警实际进入 firing；
+证据为该目录的 `redis-old-rejection-rule.json` 和 `redis-first-rejection-alert.json`。
+`exporter-up-redis-down.json` 记录了 HTTP 抓取成功但 Sentinel 不可达的场景。
 
 ## 2026-10-25 本机实测
 

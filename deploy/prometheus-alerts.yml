@@ -77,7 +77,16 @@ groups:
         labels: {severity: critical}
         annotations: {summary: "限流 Redis 内存超过 90%，接近拒绝写入"}
       - alert: CommerceRedisWriteRejected
-        expr: increase(redis_errors_total{job=~"commerce-redis-(cache|rate)",err=~"OOM|MISCONF|NOREPLICAS"}[5m]) > 0
+        # Errorstats 首次出错才创建序列；缺失不是 0，increase 无法计算首批错误。
+        # 除持续增长外，首次观测到的非零计数也告警，五分钟后无新增则解除。
+        expr: |
+          increase(redis_errors_total{job=~"commerce-redis-(cache|rate)",err=~"OOM|MISCONF|NOREPLICAS"}[5m]) > 0
+          or
+          (
+            redis_errors_total{job=~"commerce-redis-(cache|rate)",err=~"OOM|MISCONF|NOREPLICAS"} > 0
+            unless
+            redis_errors_total{job=~"commerce-redis-(cache|rate)",err=~"OOM|MISCONF|NOREPLICAS"} offset 5m
+          )
         labels: {severity: critical}
         annotations: {summary: "Redis 因内存、持久化或副本不足拒绝命令"}
       - alert: CommerceRedisReplicationLinkDown
