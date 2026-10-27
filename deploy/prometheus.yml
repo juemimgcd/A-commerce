@@ -24,3 +24,38 @@ scrape_configs:
     metrics_path: /metrics/per-object
     static_configs:
       - targets: [rabbitmq:15692]
+  - job_name: commerce-redis-cache
+    metrics_path: /scrape
+    static_configs:
+      - targets: [redis:6379, redis-cache-replica-1:6379, redis-cache-replica-2:6379]
+        labels: {redis_group: cache}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: __address__
+        replacement: redis-cache-exporter:9121
+  - job_name: commerce-redis-rate
+    metrics_path: /scrape
+    static_configs:
+      - targets: [redis-rate:6379, redis-rate-replica-1:6379, redis-rate-replica-2:6379]
+        labels: {redis_group: rate}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: __address__
+        replacement: redis-rate-exporter:9121
+  - job_name: commerce-redis-sentinel
+    metrics_path: /scrape
+    static_configs:
+      - targets: [sentinel-1:26379, sentinel-2:26379, sentinel-3:26379]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: __address__
+        replacement: redis-sentinel-exporter:9121

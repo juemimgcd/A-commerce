@@ -188,10 +188,10 @@ def main() -> None:
                     targets = client.get(urls["prometheus"] + "/api/v1/targets").json()["data"][
                         "activeTargets"
                     ]
-                    if len(targets) == 8 and all(target["health"] == "up" for target in targets):
+                    if len(targets) == 17 and all(target["health"] == "up" for target in targets):
                         break
                     if time.monotonic() >= deadline:
-                        raise RuntimeError("not all eight monitoring targets became healthy")
+                        raise RuntimeError("not all seventeen monitoring targets became healthy")
                     time.sleep(2)
                 report["scrape_targets"] = [
                     {"job": target["labels"]["job"], "health": target["health"]}

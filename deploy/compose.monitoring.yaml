@@ -1,5 +1,26 @@
-# 与 compose.yaml 合并使用；管理界面只绑定 loopback，生产通知接收人另行配置。
+# 与 compose.yaml + compose.redis-sentinel.yaml 合并；生产通知接收人另行配置。
+x-redis-exporter: &redis-exporter
+  image: oliver006/redis_exporter:v1.96.0@sha256:3d57b9eb142a62ffc600063606a41cd471cd53d81bed10be5b56b3a8918f2c26
+  command: ["--redis.addr=", "--connection-timeout=2s"]
+  restart: unless-stopped
+  read_only: true
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+# 不发布 exporter 端口；/scrape 可选择目标，只允许内部监控网络访问。
+# 不开启 key/value 扫描、客户端列表或命令参数导出。
 services:
+  redis-cache-exporter:
+    <<: *redis-exporter
+    environment:
+      REDIS_PASSWORD: ${REDIS_CACHE_PASSWORD:?required}
+  redis-rate-exporter:
+    <<: *redis-exporter
+    environment:
+      REDIS_PASSWORD: ${REDIS_RATE_PASSWORD:?required}
+  redis-sentinel-exporter:
+    <<: *redis-exporter
+    environment:
+      REDIS_PASSWORD: ${REDIS_SENTINEL_PASSWORD:?required}
   prometheus:
     image: prom/prometheus:v3.7.0@sha256:29c1e0b48ad816750245dea3d65ac3ce57dda30547e67b1e9a5176e2953cc4dc
     command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=7d"]

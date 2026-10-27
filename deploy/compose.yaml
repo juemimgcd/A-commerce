@@ -55,7 +55,7 @@ services:
       retries: 20
   redis:
     image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
-    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    command: ["redis-server", "--maxmemory", "${REDIS_CACHE_MAXMEMORY:-128mb}", "--maxmemory-policy", "allkeys-lru", "--slowlog-log-slower-than", "${REDIS_SLOWLOG_MICROSECONDS:-10000}", "--slowlog-max-len", "${REDIS_SLOWLOG_MAX_LEN:-128}"]
     ports: ["127.0.0.1:${COMMERCE_CACHE_PORT:-56379}:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -65,7 +65,7 @@ services:
   redis-rate:
     image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
     # 换 Redis DB 编号不能隔离内存淘汰，必须独立进程。AOF 每秒刷盘仍可能丢失最后一秒。
-    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction", "--appendonly", "yes", "--appendfsync", "everysec"]
+    command: ["redis-server", "--maxmemory", "${REDIS_RATE_MAXMEMORY:-128mb}", "--maxmemory-policy", "noeviction", "--appendonly", "yes", "--appendfsync", "everysec", "--slowlog-log-slower-than", "${REDIS_SLOWLOG_MICROSECONDS:-10000}", "--slowlog-max-len", "${REDIS_SLOWLOG_MAX_LEN:-128}"]
     ports: ["127.0.0.1:${COMMERCE_RATE_PORT:-56380}:6379"]
     volumes: ["redis-rate:/data"]
     healthcheck:
