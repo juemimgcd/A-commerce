@@ -4,7 +4,9 @@ import { Suspense, type ReactNode } from "react";
 import "@fontsource/geist/400.css";
 import "@fontsource/geist/500.css";
 import "@fontsource/geist/600.css";
+import "@fontsource/geist/700.css";
 import "./globals.css";
+import "./storefront.css";
 import { Providers } from "@/components/providers";
 import { Shell } from "@/components/shell";
 import { Loading } from "@/components/ui";
@@ -13,9 +15,9 @@ import { cookieNames, webOrigin } from "@/lib/server";
 export const metadata: Metadata = {
   metadataBase: new URL(webOrigin()),
   title: { default: "A-commerce · 规格清楚，选择简单", template: "%s · A-commerce" },
-  description: "按接口、功率与预算选择数码配件。核对规格、运费和总价，追踪订单与售后进度。",
+  description: "浏览护肤、小家电与日常用品，按分类、品牌和预算选购，查看规格、价格及订单进度。",
   robots: { index: false, follow: false },
-  openGraph: { siteName: "A-commerce", locale: "zh_CN", type: "website" },
+  openGraph: { locale: "zh_CN", type: "website" },
 };
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#f7f8fa" };
 
@@ -32,7 +34,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         </Providers>
         <noscript>
           <div className="noscript-notice">
-            商品内容可直接阅读。登录、筛选与交易操作需要启用 JavaScript。
+            请启用 JavaScript 以完整加载商品，并使用筛选、登录与交易功能。
           </div>
         </noscript>
       </body>

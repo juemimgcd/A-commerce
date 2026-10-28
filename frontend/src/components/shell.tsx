@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, type ReactNode, type FormEvent } from "react";
 import {
   ArrowUpRight,
@@ -19,6 +19,8 @@ import {
   Users,
   Truck,
   SlidersHorizontal,
+  Heart,
+  CaretRight,
 } from "@phosphor-icons/react";
 import { useAuth, useStore } from "./providers";
 import { Button, ErrorNotice, Modal } from "./ui";
@@ -38,23 +40,20 @@ export const adminLinks = [
   { href: "/admin/account", title: "我的会话", permission: "", icon: UserCircle },
 ];
 
-function Logo({ admin = false }: { admin?: boolean }) {
-  return (
-    <Link
-      href={admin ? "/admin" : "/"}
-      className="logo"
-      aria-label={admin ? "A-commerce 商家工作台" : "A-commerce 首页"}
-    >
-      <span className="brand-mark" aria-hidden>
-        A<span>·</span>
-      </span>
-      <span>A-commerce{admin && <small>商家工作台</small>}</span>
-    </Link>
-  );
-}
+const mobileLinks = [
+  ["/", "首页"],
+  ["/products", "全部商品"],
+  ["/compare", "规格比较"],
+  ["/orders", "我的订单"],
+  ["/account", "我的账户"],
+  ["/account/favorites", "我的收藏"],
+  ["/returns", "售后进度"],
+  ["/help", "购物帮助"],
+] as const;
 
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const searchTerm = useSearchParams().get("q") ?? "";
   const admin = pathname.startsWith("/admin");
   const auth = useAuth();
   const store = useStore();
@@ -62,6 +61,9 @@ export function Shell({ children }: { children: ReactNode }) {
   const [menu, setMenu] = useState(false);
   const [error, setError] = useState<unknown>();
   const checkout = pathname === "/checkout";
+  const activeMobileLink = mobileLinks
+    .filter(([href]) => pathname === href || (href !== "/" && pathname.startsWith(`${href}/`)))
+    .sort(([left], [right]) => right.length - left.length)[0]?.[0];
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     router.push(
@@ -94,7 +96,9 @@ export function Shell({ children }: { children: ReactNode }) {
       {admin ? (
         <div className="admin-app">
           <aside className="sidebar">
-            <Logo admin />
+            <Link href="/admin" className="sidebar-title">
+              商家工作台
+            </Link>
             {adminNavigation}
             <Link className="back-store" href="/">
               <ArrowUpRight size={18} />
@@ -108,7 +112,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   <List size={22} />
                 </Button>
               </div>
-              <span className="topbar-label">A-commerce / 商家工作台</span>
+              <span className="topbar-label">商家工作台</span>
               <Link href="/admin/account" className="account-label">
                 <UserCircle size={20} />
                 {auth.admin?.email ?? "未登录"}
@@ -126,20 +130,52 @@ export function Shell({ children }: { children: ReactNode }) {
           </Modal>
         </div>
       ) : (
-        <>
+        <div className="storefront">
           <div className="store-topline">
             <div className="container">
-              <span>数码配件 · 按需选择</span>
-              <span>
+              <span className="store-environment">
                 {store.data?.payment_mode === "simulator"
                   ? "演示环境 · 使用模拟支付"
                   : "规格与价格，以结算报价为准"}
               </span>
+              {!checkout && (
+                <nav className="header-actions" aria-label="账户快捷入口">
+                  <Link
+                    href={auth.customer ? "/account" : "/login"}
+                    aria-label={auth.customer ? "我的账户" : "登录"}
+                  >
+                    <UserCircle size={20} />
+                    <span>{auth.customer ? "我的账户" : "登录 / 注册"}</span>
+                  </Link>
+                  <Link
+                    className="header-favorites"
+                    href="/account/favorites"
+                    aria-label="我的收藏"
+                  >
+                    <Heart size={20} />
+                  </Link>
+                  <Link href="/cart" aria-label="购物车">
+                    <ShoppingBag size={20} />
+                    <span>购物车</span>
+                  </Link>
+                  <Button
+                    className="mobile-only"
+                    variant="ghost"
+                    onClick={() => setMenu(true)}
+                    aria-label="打开导航"
+                    aria-expanded={menu}
+                  >
+                    <List size={22} />
+                  </Button>
+                </nav>
+              )}
+              <Link className="topline-help" href="/help">
+                帮助与服务 <CaretRight size={12} />
+              </Link>
             </div>
           </div>
           <header className="store-header">
             <div className="container header-main">
-              <Logo />
               {checkout ? (
                 <Link className="text-link" href="/cart">
                   <ArrowLeft />
@@ -147,71 +183,92 @@ export function Shell({ children }: { children: ReactNode }) {
                 </Link>
               ) : (
                 <>
-                  <nav className="desktop-nav" aria-label="主要导航">
-                    <Link
-                      href="/products"
-                      aria-current={pathname.startsWith("/products") ? "page" : undefined}
+                  <div className="header-search-area">
+                    <form
+                      className="header-search"
+                      role="search"
+                      action="/products"
+                      method="get"
+                      onSubmit={search}
                     >
-                      全部商品
-                    </Link>
-                    <Link
-                      href="/compare"
-                      aria-current={pathname === "/compare" ? "page" : undefined}
-                    >
-                      规格比较
-                    </Link>
-                    <Link href="/help">购物帮助</Link>
-                  </nav>
-                  <form className="header-search" onSubmit={search}>
-                    <label className="sr-only" htmlFor="header-search">
-                      搜索配件
-                    </label>
-                    <MagnifyingGlass size={20} />
-                    <input
-                      id="header-search"
-                      name="q"
-                      placeholder="搜索商品或规格"
-                      maxLength={80}
-                    />
-                    <button aria-label="搜索" type="submit">
-                      <ArrowUpRight size={20} />
-                    </button>
-                  </form>
-                  <div className="header-actions">
-                    <Link href="/cart" aria-label="购物车">
-                      <ShoppingBag size={24} />
-                    </Link>
-                    <Link
-                      href={auth.customer ? "/account" : "/login"}
-                      aria-label={auth.customer ? "我的账户" : "登录"}
-                    >
-                      <UserCircle size={25} />
-                    </Link>
-                    <Button
-                      className="mobile-only"
-                      variant="ghost"
-                      onClick={() => setMenu(true)}
-                      aria-label="打开导航"
-                    >
-                      <List size={24} />
-                    </Button>
+                      <label className="sr-only" htmlFor="header-search">
+                        搜索商品
+                      </label>
+                      <MagnifyingGlass size={20} />
+                      <input
+                        key={`${pathname}:${searchTerm}`}
+                        id="header-search"
+                        name="q"
+                        defaultValue={searchTerm}
+                        placeholder="搜索商品名称"
+                        maxLength={80}
+                      />
+                      <button aria-label="搜索" type="submit">
+                        搜索
+                      </button>
+                    </form>
+                    <nav className="search-suggestions" aria-label="常用搜索">
+                      <span>常用搜索</span>
+                      {["护肤套装", "吸尘器", "电饭煲", "数据线"].map((keyword) => (
+                        <Link key={keyword} href={{ pathname: "/products", query: { q: keyword } }}>
+                          {keyword}
+                        </Link>
+                      ))}
+                    </nav>
                   </div>
                 </>
               )}
             </div>
+            {!checkout && (
+              <div className="store-nav-row">
+                <div className="container">
+                  <nav className="store-nav" aria-label="主要导航">
+                    {[
+                      ["/", "首页"],
+                      ["/products", "全部商品"],
+                      ["/compare", "规格比较"],
+                      ["/help", "选购指南"],
+                    ].map(([href, title]) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        aria-current={
+                          pathname === href ||
+                          (href === "/products" && pathname.startsWith("/products/"))
+                            ? "page"
+                            : undefined
+                        }
+                      >
+                        {title}
+                      </Link>
+                    ))}
+                  </nav>
+                  <Link className="store-order-link" href="/orders">
+                    <Package size={16} /> 我的订单 <CaretRight size={12} />
+                  </Link>
+                </div>
+              </div>
+            )}
           </header>
           <main id="main" className="container store-main">
             {children}
           </main>
           <footer className="store-footer">
             <div className="container footer-main">
-              <div>
-                <Logo />
-                <p>规格清楚，选择简单。</p>
-              </div>
-              <nav aria-label="页脚导航">
-                <Link href="/help">购物帮助</Link>
+              <nav aria-label="选购与订单">
+                <h2>选购与订单</h2>
+                <Link href="/products">全部商品</Link>
+                <Link href="/compare">规格比较</Link>
                 <Link href="/orders">我的订单</Link>
+              </nav>
+              <nav aria-label="帮助与服务">
+                <h2>帮助与服务</h2>
+                <Link href="/help">购物帮助</Link>
+                <Link href="/returns">售后进度</Link>
+                <Link href="/account">账户管理</Link>
+              </nav>
+              <nav aria-label="关于商城">
+                <h2>关于商城</h2>
                 <Link href="/policies/privacy">隐私说明</Link>
                 <Link href="/policies/terms">使用条款</Link>
                 <Link href="/admin">
@@ -220,30 +277,25 @@ export function Shell({ children }: { children: ReactNode }) {
               </nav>
             </div>
             <div className="container footer-bottom">
-              <span>
-                © {new Date().getFullYear()} {store.data?.name ?? "A-commerce"}
-              </span>
-              <span>人民币 CNY · 单店数码配件</span>
+              <span>人民币 CNY</span>
             </div>
           </footer>
           <Modal open={menu} title="浏览商城" onClose={() => setMenu(false)}>
             <nav className="mobile-navigation">
-              {[
-                ["/", "首页"],
-                ["/products", "全部商品"],
-                ["/compare", "规格比较"],
-                ["/orders", "我的订单"],
-                ["/account", "我的账户"],
-                ["/help", "购物帮助"],
-              ].map(([href, title]) => (
-                <Link key={href} href={href} onClick={() => setMenu(false)}>
+              {mobileLinks.map(([href, title]) => (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={activeMobileLink === href ? "page" : undefined}
+                  onClick={() => setMenu(false)}
+                >
                   {title}
-                  <ArrowUpRight />
+                  <CaretRight />
                 </Link>
               ))}
             </nav>
           </Modal>
-        </>
+        </div>
       )}
       {error !== undefined && (
         <div className="floating-error">

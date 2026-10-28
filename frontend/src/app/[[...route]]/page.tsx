@@ -26,7 +26,7 @@ import {
   StaffScreen,
 } from "@/features/admin-operations";
 import { publicData, webOrigin } from "@/lib/server";
-import type { Product, ProductPage } from "@/lib/types";
+import type { Category, Product, ProductPage } from "@/lib/types";
 
 type Props = {
   params: Promise<{ route?: string[] }>;
@@ -60,8 +60,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     const product = await publicData<Product>(`products/${route[1]}`);
     return {
       title: product?.title ?? "商品详情",
-      description:
-        product?.description.slice(0, 160) || "核对商品规格与售价，选择适合设备的数码配件。",
+      description: product?.description.slice(0, 160) || "核对商品规格与售价，选择适合自己的商品。",
       alternates: { canonical: path },
       robots: { index: indexable, follow: indexable },
     };
@@ -80,8 +79,13 @@ export default async function Page(props: Props) {
   const search = await props.searchParams;
   const [area, id, child] = route;
   let content;
-  if (!area) content = <HomeScreen initial={await publicData<ProductPage>("products?limit=8")} />;
-  else if (area === "products" && route.length === 1) {
+  if (!area) {
+    const [products, categories] = await Promise.all([
+      publicData<ProductPage>("products?limit=30"),
+      publicData<Category[]>("categories"),
+    ]);
+    content = <HomeScreen initial={products} initialCategories={categories} />;
+  } else if (area === "products" && route.length === 1) {
     const filters = new URLSearchParams();
     for (const key of ["q", "category", "min_price", "max_price", "brand", "attribute"]) {
       const value = search[key];
