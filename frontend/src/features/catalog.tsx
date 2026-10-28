@@ -13,11 +13,12 @@ import {
   ShoppingBag,
   Check,
   Scales,
-  Package,
   MagnifyingGlass,
-  PlugsConnected,
-  CursorClick,
-  Receipt,
+  CaretRight,
+  CaretDown,
+  SquaresFour,
+  ImageSquare,
+  Package,
 } from "@phosphor-icons/react";
 import { api, mediaUrl } from "@/lib/api";
 import { attributes, formText, money, parseFen } from "@/lib/format";
@@ -63,16 +64,28 @@ export function ProductImage({
           onError={() => setFailed(true)}
         />
       ) : (
-        <div className="image-missing">
-          <Package weight="thin" size={48} />
-          <span>暂无商品图片</span>
+        <div className="image-missing" role="img" aria-label={`${title}，商品图片待补充`}>
+          <Package className="image-placeholder-icon" weight="thin" size={48} aria-hidden />
+          <span className="image-placeholder-label">
+            <ImageSquare size={16} aria-hidden /> 商品图片待补充
+          </span>
         </div>
       )}
     </div>
   );
 }
 
-export function ProductTile({ product, filter }: { product: Product; filter?: URLSearchParams }) {
+export function ProductTile({
+  product,
+  filter,
+  compact = false,
+  priority = false,
+}: {
+  product: Product;
+  filter?: URLSearchParams;
+  compact?: boolean;
+  priority?: boolean;
+}) {
   const eligible = product.skus.filter(
     (sku) =>
       sku.active &&
@@ -87,22 +100,34 @@ export function ProductTile({ product, filter }: { product: Product; filter?: UR
   const available = eligible.some((sku) => sku.available > 0);
   const price = eligible.length ? Math.min(...eligible.map((sku) => sku.price_fen)) : undefined;
   return (
-    <article className="product-tile">
-      <Link href={`/products/${product.id}`} className="product-visual">
-        <ProductImage mediaId={product.cover_media_id} title={product.title} />
+    <article className={`product-tile${compact ? " product-tile-compact" : ""}`}>
+      <Link
+        href={`/products/${product.id}`}
+        className="product-visual"
+        aria-label={`查看${product.title}`}
+      >
+        <ProductImage mediaId={product.cover_media_id} title={product.title} priority={priority} />
         {!available && <span className="product-availability">暂时缺货</span>}
-        <span className="product-open" aria-hidden>
-          <ArrowUpRight size={20} />
-        </span>
+        {!compact && (
+          <span className="product-open" aria-hidden>
+            <ArrowUpRight size={20} />
+          </span>
+        )}
       </Link>
       <div className="product-tile-info">
-        <p className="eyebrow">{product.brand || "数码配件"}</p>
+        {!compact && <p className="eyebrow">{product.brand || "精选商品"}</p>}
         <h2>
-          <Link href={`/products/${product.id}`}>{product.title}</Link>
+          <Link href={`/products/${product.id}`} title={product.title}>
+            {product.title}
+          </Link>
         </h2>
-        <p className="product-spec muted">
-          {attributes(eligible[0]?.attributes) || "查看商品规格"}
-        </p>
+        {!compact && (
+          <p className="product-spec muted">
+            {eligible.length > 1
+              ? `${eligible.length} 种规格可选 · 查看参数与价格`
+              : attributes(eligible[0]?.attributes) || "查看商品规格"}
+          </p>
+        )}
         <div className="product-price">
           {price !== undefined ? (
             <>
@@ -115,87 +140,98 @@ export function ProductTile({ product, filter }: { product: Product; filter?: UR
             <span className="muted">当前无可选规格</span>
           )}
         </div>
+        {!compact && (
+          <Link href={`/products/${product.id}`} className="product-details-link">
+            选择规格 <ArrowRight size={16} />
+          </Link>
+        )}
       </div>
     </article>
   );
 }
 
-export function HomeScreen({ initial }: { initial?: ProductPage }) {
-  const products = useQuery({
-    queryKey: ["catalog", "home"],
-    queryFn: ({ signal }) => api<ProductPage>("customer/products?limit=8", { signal }),
-    initialData: initial,
+export function HomeScreen({
+  initial,
+  initialCategories,
+}: {
+  initial?: ProductPage;
+  initialCategories?: Category[];
+}) {
+  const products = useInfiniteQuery({
+    queryKey: ["catalog", "home-feed"],
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam, signal }) =>
+      api<ProductPage>(`customer/products?limit=30${pageParam ? `&cursor=${pageParam}` : ""}`, {
+        signal,
+      }),
+    getNextPageParam: (page) => page.next_cursor ?? undefined,
+    initialData: initial ? { pages: [initial], pageParams: [null] } : undefined,
   });
   const categories = useQuery({
     queryKey: ["categories"],
     queryFn: () => api<Category[]>("customer/categories"),
+    initialData: initialCategories,
   });
-  return (
+  const items = products.data?.pages.flatMap((page) => page.items) ?? [];
+  const directory = (
     <>
-      <section className="shop-hero">
-        <div className="hero-copy">
-          <p className="eyebrow">
-            <span className="tiny-line" /> 为你的设备，选对配件
-          </p>
-          <h1>
-            规格清楚。
-            <br />
-            <span>选择简单。</span>
-          </h1>
-          <p className="hero-description">
-            从接口、功率和预算开始，
-            <br className="desktop-only" />
-            找到适合日常的数码配件。
-          </p>
-          <Link className="button primary" href="/products">
-            浏览全部商品 <ArrowUpRight size={20} />
-          </Link>
-          <p className="hero-note">确认规格、运费与总价后再下单。</p>
-        </div>
-        <div className="hero-guide" aria-label="选购指南">
-          <div className="guide-top">
-            <span>THE RIGHT CONNECTION</span>
-            <span>01 / 03</span>
+      <nav className="directory-categories" aria-label="商品分类">
+        <Link href="/products">
+          全部商品 <CaretRight size={14} />
+        </Link>
+        {categories.isPending ? (
+          <div className="directory-loading" aria-busy="true" aria-label="正在加载分类">
+            <span className="skeleton" />
+            <span className="skeleton" />
           </div>
-          <PlugsConnected className="hero-plug" weight="thin" aria-hidden />
-          <div className="guide-bottom">
-            <div>
-              <strong>先看接口，再选规格。</strong>
-              <p>让每一次连接，都刚刚好。</p>
-            </div>
-            <ArrowUpRight size={28} />
-          </div>
-        </div>
-      </section>
-      <section className="catalog-section">
-        <div className="section-title">
-          <div>
-            <span className="eyebrow">浏览目录</span>
-            <h2>从这里找到所需</h2>
-          </div>
-          <Link className="text-link" href="/products">
-            查看全部 <ArrowRight />
-          </Link>
-        </div>
-        {categories.data && (
-          <nav className="category-chips" aria-label="商品分类">
-            <Link href="/products">全部配件</Link>
-            {categories.data.map((category) => (
-              <Link key={category.id} href={`/products?category=${category.id}`}>
-                {category.name}
-                <ArrowUpRight size={14} />
-              </Link>
-            ))}
-          </nav>
+        ) : categories.data?.length ? (
+          categories.data.map((category) => (
+            <Link key={category.id} href={`/products?category=${category.id}`}>
+              {category.name}
+              <CaretRight size={14} />
+            </Link>
+          ))
+        ) : (
+          !categories.error && <p className="directory-empty">更多分类准备中</p>
         )}
-        <ErrorNotice error={categories.error} retry={() => void categories.refetch()} />
-        <ErrorNotice error={products.error} retry={() => void products.refetch()} />
+      </nav>
+      <ErrorNotice error={categories.error} retry={() => void categories.refetch()} />
+    </>
+  );
+  return (
+    <div className="marketplace-home">
+      <aside className="category-directory" aria-label="分类导航">
+        <h2>
+          <SquaresFour size={18} /> 全部分类
+        </h2>
+        {directory}
+      </aside>
+      <details className="mobile-category-directory">
+        <summary>
+          <SquaresFour size={18} />
+          全部分类
+          <CaretDown size={16} />
+        </summary>
+        {directory}
+      </details>
+      <section className="home-feed" aria-labelledby="home-products">
+        <div className="home-feed-toolbar">
+          <h1 id="home-products">发现好物</h1>
+          <Link className="text-link" href="/products">
+            <SlidersHorizontal size={16} />
+            筛选商品
+          </Link>
+        </div>
+        <ErrorNotice
+          error={products.isFetchNextPageError ? undefined : products.error}
+          retry={() => void products.refetch()}
+        />
         {products.isPending ? (
-          <Loading rows={4} />
-        ) : products.data?.items.length ? (
-          <div className="product-grid">
-            {products.data.items.map((product) => (
-              <ProductTile key={product.id} product={product} />
+          <CatalogLoading />
+        ) : items.length ? (
+          <div className="product-grid home-product-grid">
+            {items.map((product, index) => (
+              <ProductTile key={product.id} product={product} compact priority={index < 5} />
             ))}
           </div>
         ) : (
@@ -203,25 +239,43 @@ export function HomeScreen({ initial }: { initial?: ProductPage }) {
             <Empty title="商品正在准备中">商品上架后会显示在这里。你可以稍后回来查看。</Empty>
           )
         )}
+        <div className="home-feed-more">
+          <ErrorNotice
+            error={products.isFetchNextPageError ? products.error : undefined}
+            retry={() => void products.fetchNextPage()}
+          />
+          {products.hasNextPage && (
+            <Button
+              variant="secondary"
+              busy={products.isFetchingNextPage}
+              onClick={() => void products.fetchNextPage()}
+            >
+              加载更多商品
+            </Button>
+          )}
+          {items.length > 0 && (
+            <p className="muted" role="status">
+              已显示 {items.length} 件商品{!products.hasNextPage && "，已全部展示"}
+            </p>
+          )}
+        </div>
       </section>
-      <section className="buying-guide" aria-label="购买步骤">
-        <div>
-          <PlugsConnected size={28} weight="light" />
-          <h3>选对规格</h3>
-          <p>核对接口与参数，选择适合设备的规格。</p>
+    </div>
+  );
+}
+
+function CatalogLoading() {
+  return (
+    <div className="product-grid catalog-loading" aria-busy="true" aria-label="正在加载商品">
+      <span className="sr-only">正在加载商品</span>
+      {Array.from({ length: 4 }, (_, index) => (
+        <div key={index} className="product-skeleton">
+          <div className="skeleton product-skeleton-image" />
+          <div className="skeleton product-skeleton-title" />
+          <div className="skeleton product-skeleton-price" />
         </div>
-        <div>
-          <CursorClick size={28} weight="light" />
-          <h3>确认总价</h3>
-          <p>收货地址、商品与运费，在下单前逐项确认。</p>
-        </div>
-        <div>
-          <Receipt size={28} weight="light" />
-          <h3>追踪进度</h3>
-          <p>付款、发货与售后处理，随时查看当前结果。</p>
-        </div>
-      </section>
-    </>
+      ))}
+    </div>
   );
 }
 
@@ -250,6 +304,9 @@ export function CatalogScreen({ initial }: { initial?: ProductPage }) {
     initialData: initial ? { pages: [initial], pageParams: [null] } : undefined,
   });
   const items = products.data?.pages.flatMap((page) => page.items) ?? [];
+  const selectedCategory = categories.data?.find(
+    (category) => category.id === search.get("category"),
+  );
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(undefined);
@@ -355,10 +412,17 @@ export function CatalogScreen({ initial }: { initial?: ProductPage }) {
   );
   return (
     <>
+      <nav className="breadcrumbs" aria-label="面包屑">
+        <Link href="/">首页</Link>
+        <span>/</span>
+        <span>商品目录</span>
+      </nav>
       <PageTitle
-        eyebrow="配件目录"
-        title={search.get("q") ? `搜索“${search.get("q")}”` : "找到合适的那一件"}
-        description="按规格与预算筛选，查看具体商品了解兼容信息。"
+        eyebrow="THE COLLECTION"
+        title={
+          search.get("q") ? `搜索“${search.get("q")}”` : (selectedCategory?.name ?? "全部商品")
+        }
+        description="按分类、品牌、规格与预算筛选商品。"
       />
       <div className="catalog-layout">
         <aside className="catalog-filters">
@@ -378,13 +442,19 @@ export function CatalogScreen({ initial }: { initial?: ProductPage }) {
               <SlidersHorizontal />
               筛选
             </Button>
-            <span className="desktop-only muted">默认顺序</span>
+            {filter.size > 0 ? (
+              <Link className="text-link" href="/products">
+                清除筛选 <ArrowRight size={16} />
+              </Link>
+            ) : (
+              <span className="desktop-only muted">默认顺序</span>
+            )}
           </div>
           <ErrorNotice error={products.error} retry={() => void products.refetch()} />
           {products.isPending ? (
-            <Loading rows={4} />
+            <CatalogLoading />
           ) : items.length ? (
-            <div className="product-grid">
+            <div className={`product-grid${items.length === 1 ? " single-product" : ""}`}>
               {items.map((product) => (
                 <ProductTile key={product.id} product={product} filter={filter} />
               ))}
@@ -496,6 +566,8 @@ function ProductDetail({ product }: { product: Product }) {
   return (
     <>
       <nav className="breadcrumbs" aria-label="面包屑">
+        <Link href="/">首页</Link>
+        <span>/</span>
         <Link href="/products">全部商品</Link>
         <span>/</span>
         <span>{product.title}</span>
@@ -534,19 +606,22 @@ function ProductDetail({ product }: { product: Product }) {
         <section className="product-buy">
           <p className="eyebrow">{product.brand || "数码配件"}</p>
           <h1>{product.title}</h1>
-          <div className="detail-price">
-            {sku ? (
-              <Money value={sku.price_fen} />
-            ) : skus.length ? (
-              <>
-                <Money value={Math.min(...skus.map((item) => item.price_fen))} />
-                <small>起</small>
-              </>
-            ) : (
-              <span>暂无可选规格</span>
-            )}
+          <div className="purchase-price-panel">
+            <span className="eyebrow">商品价格</span>
+            <div className="detail-price">
+              {sku ? (
+                <Money value={sku.price_fen} />
+              ) : skus.length ? (
+                <>
+                  <Money value={Math.min(...skus.map((item) => item.price_fen))} />
+                  <small>起</small>
+                </>
+              ) : (
+                <span>暂无可选规格</span>
+              )}
+            </div>
+            <p className="muted">运费将在选择收货地址后计算。</p>
           </div>
-          <p className="muted">运费将在选择收货地址后计算。</p>
           <fieldset className="sku-options">
             <legend>选择规格</legend>
             {skus.map((item) => (

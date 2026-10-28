@@ -66,8 +66,11 @@
     --border: #d8dee8;
     --text: #172033;
     --muted: #526079;
-    --primary: #1d4ed8;
-    --primary-hover: #1e40af;
+    --primary: #ff5000;
+    --primary-contrast: #c73e00;
+    --primary-hover: #a93400;
+    --primary-soft: #fff3ed;
+    --primary-focus: #ffd7c4;
     --success: #166534;
     --warning: #92400e;
     --danger: #b91c1c;
@@ -114,7 +117,7 @@
     touch-action: manipulation;
   }
   a:hover {
-    color: var(--primary);
+    color: var(--primary-contrast);
   }
   a:focus-visible,
   button:focus-visible,
@@ -153,7 +156,7 @@
   select:focus,
   textarea:focus {
     border-color: var(--primary);
-    outline: 2px solid #dbe7ff;
+    outline: 2px solid var(--primary-focus);
     outline-offset: 1px;
   }
   input::placeholder,
@@ -290,9 +293,9 @@
     height: 20px;
   }
   .button.primary {
-    background: var(--primary);
+    background: var(--primary-contrast);
     color: white;
-    border-color: var(--primary);
+    border-color: var(--primary-contrast);
   }
   .button.primary:hover:not(:disabled) {
     background: var(--primary-hover);
@@ -616,7 +619,7 @@
     white-space: nowrap;
   }
   td a:not(.button) {
-    color: var(--primary);
+    color: var(--primary-contrast);
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -676,42 +679,6 @@
     white-space: nowrap;
     max-width: min(65vw, 560px);
   }
-  .logo {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 20px;
-    font-weight: 600;
-    letter-spacing: -0.04em;
-    white-space: nowrap;
-  }
-  .logo:hover {
-    color: var(--text);
-  }
-  .brand-mark {
-    position: relative;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--text);
-    color: white;
-    border-radius: 8px;
-    font-size: 28px;
-    letter-spacing: -0.05em;
-  }
-  .brand-mark > span {
-    color: #6b95ff;
-  }
-  .logo small {
-    display: block;
-    color: var(--muted);
-    font-size: 12px;
-    font-weight: 400;
-    letter-spacing: 0;
-    margin-top: 2px;
-  }
   .store-topline {
     background: var(--text);
     color: #e6edf8;
@@ -746,7 +713,7 @@
     align-items: center;
   }
   [aria-current="page"] {
-    color: var(--primary);
+    color: var(--primary-contrast);
   }
   .header-search {
     margin-left: auto;
@@ -785,7 +752,7 @@
     flex: 0 0 40px;
   }
   .header-search button:hover {
-    color: var(--primary);
+    color: var(--primary-contrast);
   }
   .header-actions {
     display: flex;
@@ -1215,7 +1182,7 @@
   }
   .sku-options label.selected {
     border-color: var(--primary);
-    background: #f0f5ff;
+    background: var(--primary-soft);
   }
   .quantity {
     width: 88px;
@@ -1330,7 +1297,7 @@
     line-height: 1.8;
   }
   .auth-legal a {
-    color: var(--primary);
+    color: var(--primary-contrast);
     margin-inline: 4px;
   }
   .checkout-layout {
@@ -1491,7 +1458,7 @@
   }
   .address-options label.selected {
     border-color: var(--primary);
-    background: #f5f8ff;
+    background: var(--primary-soft);
   }
   .order-line {
     display: flex;
@@ -1744,7 +1711,7 @@
     font-size: 14px;
   }
   .help-contact a {
-    color: var(--primary);
+    color: var(--primary-contrast);
   }
   .admin-app {
     display: flex;
@@ -1762,15 +1729,11 @@
     border-right: 1px solid var(--border);
     background: var(--surface);
   }
-  .sidebar .logo {
+  .sidebar-title {
     font-size: 18px;
-    gap: 12px;
+    line-height: 28px;
+    font-weight: 600;
     padding-inline: 8px;
-  }
-  .sidebar .brand-mark {
-    width: 36px;
-    height: 36px;
-    font-size: 24px;
   }
   .admin-nav {
     display: flex;
@@ -1794,8 +1757,8 @@
     color: var(--text);
   }
   .admin-nav a[aria-current="page"] {
-    background: #edf3ff;
-    color: var(--primary);
+    background: var(--primary-soft);
+    color: var(--primary-contrast);
     font-weight: 500;
   }
   .back-store {
@@ -2095,23 +2058,11 @@
     .store-topline .container {
       justify-content: center;
     }
-    .store-topline .container > span:first-child {
-      display: none;
-    }
     .header-main {
       flex-wrap: wrap;
       gap: 0 12px;
       min-height: 80px;
       padding-block: 12px;
-    }
-    .logo {
-      font-size: 20px;
-      gap: 8px;
-    }
-    .brand-mark {
-      width: 36px;
-      height: 36px;
-      font-size: 24px;
     }
     .header-main > .text-link {
       margin-left: auto;
@@ -2542,9 +2493,6 @@
     }
   }
   @media (max-width: 379px) {
-    .logo {
-      font-size: 18px;
-    }
     .header-actions > a {
       min-width: 36px;
     }
