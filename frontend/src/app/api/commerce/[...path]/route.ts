@@ -19,6 +19,7 @@ const rules: Record<string, RegExp[]> = {
   ],
   POST: [
     /^customer\/(memory\/items|support\/conversations)$/,
+    new RegExp(`^customer/support/runs/${uuid}/cancel$`),
     new RegExp(`^customer/support/conversations/${uuid}/messages$`),
     /^customer\/(auth\/(login|logout|register|password|reset-request|reset-confirm)|addresses|quotes|orders|event-snapshots)$/,
     new RegExp(

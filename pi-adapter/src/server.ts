@@ -1,7 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
 import { createServer, type ServerResponse } from "node:http";
 import { Check } from "typebox/value";
-import { createSupportRuntime, requestSchema } from "./runtime.ts";
+import { createSupportRuntime } from "./runtime.ts";
+import { requestSchema } from "./contracts.ts";
+import { config, HarnessError } from "./config.ts";
+import { acquireStorage } from "./sessions.ts";
 
 const secret = process.env.COMMERCE_SUPPORT_BRIDGE_SECRET;
 if (!secret || secret.length < 32)
@@ -9,8 +12,21 @@ if (!secret || secret.length < 32)
     "COMMERCE_SUPPORT_BRIDGE_SECRET must have at least 32 characters.",
   );
 const expected = Buffer.from(`Bearer ${secret}`);
-const runtime = await createSupportRuntime();
-const controllers = new Set<AbortController>();
+process.umask(0o077);
+const release = await acquireStorage();
+const runtime = await createSupportRuntime().catch(async (error) => {
+  await release();
+  throw error;
+});
+const controllers = new Map<string, AbortController>();
+let closing = false;
+const cleanup = setInterval(
+  () => {
+    void runtime.prune().catch(() => console.warn("support_retention_failed"));
+  },
+  12 * 60 * 60 * 1000,
+);
+cleanup.unref();
 
 function respond(response: ServerResponse, status: number, body: object) {
   if (response.destroyed || response.writableEnded) return;
@@ -23,7 +39,10 @@ function respond(response: ServerResponse, status: number, body: object) {
 
 const server = createServer(async (request, response) => {
   if (request.method === "GET" && request.url === "/health") {
-    respond(response, 200, { status: "ready" });
+    respond(response, closing ? 503 : 200, {
+      status: closing ? "closing" : "ready",
+      version: "commerce-harness-v1",
+    });
     return;
   }
   const provided = Buffer.from(request.headers.authorization ?? "");
@@ -34,18 +53,24 @@ const server = createServer(async (request, response) => {
     respond(response, 401, { error: "UNAUTHENTICATED" });
     return;
   }
+  const cancel = request.url?.match(/^\/runs\/([0-9a-f-]{36})\/cancel$/);
+  if (request.method === "POST" && cancel) {
+    controllers.get(cancel[1])?.abort();
+    respond(response, 200, { status: "cancelled" });
+    return;
+  }
   if (request.method !== "POST" || request.url !== "/run") {
     respond(response, 404, { error: "NOT_FOUND" });
     return;
   }
-  if (controllers.size >= 4) {
+  if (closing || controllers.size >= config.concurrency) {
     respond(response, 503, { error: "SUPPORT_BUSY" });
     return;
   }
   const controller = new AbortController();
-  controllers.add(controller);
-  const timer = setTimeout(() => controller.abort(), 85000);
+  const timer = setTimeout(() => controller.abort(), config.timeoutMs);
   response.on("close", () => controller.abort());
+  let runId: string | undefined;
   try {
     const chunks: Buffer[] = [];
     let length = 0;
@@ -69,14 +94,25 @@ const server = createServer(async (request, response) => {
       respond(response, 422, { error: "INVALID_REQUEST" });
       return;
     }
-    const text = await runtime.run(body, controller.signal);
-    respond(response, 200, { text });
-  } catch {
+    if (
+      controllers.has(body.run_id) ||
+      controllers.size >= config.concurrency
+    ) {
+      respond(response, 409, { error: "SUPPORT_BUSY" });
+      return;
+    }
+    runId = body.run_id;
+    controllers.set(runId, controller);
+    const reply = await runtime.run(body, controller.signal);
+    respond(response, 200, reply);
+  } catch (error) {
     // 不输出模型异常原文，其中可能包含请求上下文或认证信息。
-    respond(response, 502, { error: "SUPPORT_UNAVAILABLE" });
+    respond(response, 502, {
+      error: error instanceof HarnessError ? error.code : "SUPPORT_UNAVAILABLE",
+    });
   } finally {
     clearTimeout(timer);
-    controllers.delete(controller);
+    if (runId) controllers.delete(runId);
   }
 });
 
@@ -93,8 +129,12 @@ server.listen(
 );
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
-    for (const controller of controllers) controller.abort();
-    server.close();
+    closing = true;
+    clearInterval(cleanup);
+    for (const controller of controllers.values()) controller.abort();
+    server.close(() => {
+      void release();
+    });
     server.closeIdleConnections();
   });
 }

@@ -5995,6 +5995,148 @@
         }
       }
     },
+    "/api/v1/customer/support/runs/{run_id}/cancel": {
+      "post": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Cancel",
+        "operationId": "cancel_api_v1_customer_support_runs__run_id__cancel_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/support/runs/{run_id}/state": {
+      "get": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Run State",
+        "operationId": "run_state_api_v1_agent_support_runs__run_id__state_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Run State Api V1 Agent Support Runs  Run Id  State Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/support/runs/{run_id}/events": {
+      "post": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Event",
+        "operationId": "event_api_v1_agent_support_runs__run_id__events_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportEventIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/customer/memory": {
       "get": {
         "tags": [
@@ -10009,6 +10151,67 @@
         ],
         "title": "StoreOut"
       },
+      "SupportEventIn": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "turn_start",
+              "tool_execution_start",
+              "tool_execution_end",
+              "compaction_start",
+              "compaction_end",
+              "auto_retry_start",
+              "auto_retry_end",
+              "agent_end"
+            ],
+            "title": "Type"
+          },
+          "elapsed_ms": {
+            "type": "integer",
+            "maximum": 180000.0,
+            "minimum": 0.0,
+            "title": "Elapsed Ms"
+          },
+          "tool": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "pattern": "^commerce_[a-z_]+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool"
+          },
+          "call_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Call Id"
+          },
+          "is_error": {
+            "type": "boolean",
+            "title": "Is Error",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "elapsed_ms"
+        ],
+        "title": "SupportEventIn"
+      },
       "SupportLink": {
         "properties": {
           "title": {
@@ -10099,6 +10302,11 @@
               }
             ],
             "title": "Feedback"
+          },
+          "runtime": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Runtime"
           }
         },
         "additionalProperties": false,
@@ -10113,7 +10321,8 @@
           "error_code",
           "created_at",
           "links",
-          "feedback"
+          "feedback",
+          "runtime"
         ],
         "title": "SupportRunOut"
       },

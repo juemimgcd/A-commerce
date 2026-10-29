@@ -1,0 +1,40 @@
+# Use with compose.yaml. One support process owns the persistent session volume.
+services:
+  api:
+    environment:
+      COMMERCE_SUPPORT_ADAPTER_URL: http://support:58010
+  api-secondary:
+    environment:
+      COMMERCE_SUPPORT_ADAPTER_URL: http://support:58010
+  support:
+    build:
+      context: ../pi-adapter
+    image: ${COMMERCE_SUPPORT_IMAGE:-a-commerce-support:local}
+    environment:
+      COMMERCE_SUPPORT_BRIDGE_SECRET: ${COMMERCE_SUPPORT_BRIDGE_SECRET:?configure support bridge secret}
+      COMMERCE_PI_PROVIDER: ${COMMERCE_PI_PROVIDER:?configure model provider}
+      COMMERCE_PI_MODEL: ${COMMERCE_PI_MODEL:?configure model}
+      COMMERCE_PI_API_KEY: ${COMMERCE_PI_API_KEY:?configure model credential}
+      COMMERCE_API_ORIGIN: http://api:8000
+      COMMERCE_PI_CONCURRENCY: ${COMMERCE_PI_CONCURRENCY:-4}
+      COMMERCE_PI_MAX_TURNS: ${COMMERCE_PI_MAX_TURNS:-8}
+      COMMERCE_PI_MAX_TOOLS: ${COMMERCE_PI_MAX_TOOLS:-12}
+      COMMERCE_PI_MAX_OUTPUT_TOKENS: ${COMMERCE_PI_MAX_OUTPUT_TOKENS:-1800}
+      COMMERCE_PI_TOKEN_BUDGET: ${COMMERCE_PI_TOKEN_BUDGET:-64000}
+      COMMERCE_PI_RESERVE_TOKENS: ${COMMERCE_PI_RESERVE_TOKENS:-4096}
+      COMMERCE_PI_CONTEXT_TOKENS: ${COMMERCE_PI_CONTEXT_TOKENS:-32768}
+      COMMERCE_PI_KEEP_RECENT_TOKENS: ${COMMERCE_PI_KEEP_RECENT_TOKENS:-8000}
+      COMMERCE_PI_RETENTION_DAYS: ${COMMERCE_PI_RETENTION_DAYS:-30}
+    volumes: ["support:/app/var"]
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 100s
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:58010/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 4s
+      retries: 6
+    depends_on:
+      api: {condition: service_healthy}
+volumes:
+  support:

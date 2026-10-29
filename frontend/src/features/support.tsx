@@ -142,6 +142,10 @@ function SupportChat() {
       api(`customer/support/runs/${id}/feedback`, { method: "PUT", json: { feedback } }),
     onSuccess: () => history.refetch(),
   });
+  const cancel = useMutation({
+    mutationFn: (id: string) => api(`customer/support/runs/${id}/cancel`, { method: "POST" }),
+    onSettled: () => history.refetch(),
+  });
   const running = history.data?.some((run) => run.status === "running") ?? false;
   const busy = running || send.isPending || create.isPending || recover.isPending;
   return (
@@ -232,14 +236,27 @@ function SupportChat() {
                     <strong>商城客服</strong>
                     {run.status === "running" ? (
                       <>
-                        <p className="muted">正在查询并整理回复…</p>
+                        <p className="muted">{runProgress(run.runtime)}</p>
                         <Loading rows={2} />
+                        <div className="support-links">
+                          <Button
+                            variant="secondary"
+                            busy={cancel.isPending}
+                            onClick={() => cancel.mutate(run.id)}
+                          >
+                            停止回复
+                          </Button>
+                        </div>
                       </>
                     ) : run.status === "failed" ? (
                       <Notice>
-                        {run.error_code === "MEMORY_CHANGED"
-                          ? "你的偏好设置已更新，请重新提问以使用最新设置。"
-                          : "本次咨询未完成。可以重新发送，或通过购物帮助联系商家。"}
+                        {run.error_code === "SUPPORT_CANCELLED"
+                          ? "已停止本次回复。你可以修改问题后重新发送。"
+                          : run.error_code === "SUPPORT_BUDGET_EXHAUSTED"
+                            ? "本次查询已达到处理上限。请缩小问题范围后重新发送。"
+                            : run.error_code === "MEMORY_CHANGED"
+                              ? "你的偏好设置已更新，请重新提问以使用最新设置。"
+                              : "本次咨询未完成。可以重新发送，或通过购物帮助联系商家。"}
                       </Notice>
                     ) : (
                       <p className="preserve-lines">{run.assistant_text}</p>
@@ -281,7 +298,7 @@ function SupportChat() {
               ))}
             </div>
           )}
-          <ErrorNotice error={rate.error} />
+          <ErrorNotice error={rate.error || cancel.error} />
           <form
             className="support-composer"
             onSubmit={(event) => {
@@ -330,6 +347,16 @@ function SupportChat() {
       </div>
     </>
   );
+}
+
+function runProgress(runtime: Run["runtime"]) {
+  const events = runtime.events;
+  const last: unknown = Array.isArray(events) ? events.at(-1) : undefined;
+  const type = last && typeof last === "object" && "type" in last ? last.type : undefined;
+  if (type === "compaction_start") return "正在整理较早的对话，保留你的需求…";
+  if (type === "auto_retry_start") return "服务暂时繁忙，正在重试…";
+  if (type === "tool_execution_start") return "正在查询商品或订单信息…";
+  return "正在整理回复…";
 }
 
 export function MemoryScreen() {

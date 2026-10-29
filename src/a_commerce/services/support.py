@@ -15,7 +15,7 @@ from a_commerce.conf.resources import Resources
 from a_commerce.conf.support import support_config
 from a_commerce.errors import CommerceError, missing
 from a_commerce.models.base import now
-from a_commerce.models.support import SupportConversation, SupportRun
+from a_commerce.models.support import SupportConversation, SupportPreference, SupportRun
 from a_commerce.schemas.support import (
     AdapterReply,
     ConversationIn,
@@ -27,6 +27,7 @@ from a_commerce.schemas.support import (
     ProposeMemoryTool,
     ReturnTool,
     SearchTool,
+    SupportEventIn,
     SupportRunOut,
     SupportTool,
 )
@@ -92,7 +93,7 @@ async def history(r: Resources, p: Principal, conversation_id: UUID) -> list[Sup
                 SupportRun.status == "running",
                 SupportRun.expires_at <= now(),
             )
-            .values(status="failed", error_code="SUPPORT_INTERRUPTED")
+            .values(status="failed", error_code="SUPPORT_INTERRUPTED", token_hash="")
         )
         rows = list(
             await session.scalars(
@@ -197,6 +198,10 @@ async def execute_run(r: Resources, p: Principal, run_id: UUID, token: str) -> N
                 ]
                 payload = {
                     "run_id": str(run.id),
+                    "user_id": str(run.user_id),
+                    "conversation_id": str(run.conversation_id),
+                    "memory_generation": run.memory_generation,
+                    "previous_run_id": str(previous[0].id) if previous else None,
                     "token": token,
                     "message": run.user_text,
                     "history": context,
@@ -226,7 +231,19 @@ async def execute_run(r: Resources, p: Principal, run_id: UUID, token: str) -> N
                     },
                     timeout=config.timeout_seconds,
                 )
-                response.raise_for_status()
+                if response.is_error:
+                    # The bridge returns fixed codes only; never persist raw model errors.
+                    failure = response.json()
+                    code = failure.get("error") if isinstance(failure, dict) else None
+                    if code in {
+                        "SUPPORT_BUSY",
+                        "SUPPORT_INTERRUPTED",
+                        "MEMORY_CHANGED",
+                        "SUPPORT_BUDGET_EXHAUSTED",
+                        "SUPPORT_INCOMPLETE",
+                    }:
+                        raise CommerceError(code, "本轮咨询未完成，请重新提问。", 503)
+                    response.raise_for_status()
                 reply = AdapterReply.model_validate_json(response.content)
             async with r.sessions.begin() as session:
                 preference = await customer_memory.lock_preferences(session, p)
@@ -240,6 +257,11 @@ async def execute_run(r: Resources, p: Principal, run_id: UUID, token: str) -> N
                 if run.expires_at <= now():
                     raise CommerceError("SUPPORT_INTERRUPTED", "本轮咨询已超时。", 409)
                 run.assistant_text = reply.text
+                run.runtime = {
+                    **run.runtime,
+                    **reply.model_dump(mode="json", exclude={"text"}),
+                    "version": "commerce-harness-v1",
+                }
                 run.status = "completed"
                 run.token_hash = ""
             return
@@ -249,6 +271,12 @@ async def execute_run(r: Resources, p: Principal, run_id: UUID, token: str) -> N
         # 不记录模型请求/响应、原始异常信息或用户文本，避免泄漏凭证和个人资料。
         log.warning("support_run_failed", run_id=str(run_id), error_type=type(exc).__name__)
     async with r.sessions.begin() as session:
+        generation = await session.scalar(
+            select(SupportPreference.generation).where(SupportPreference.user_id == p.id)
+        )
+        interrupted = await session.get(SupportRun, run_id)
+        if interrupted is not None and generation != interrupted.memory_generation:
+            error_code = "MEMORY_CHANGED"
         await session.execute(
             update(SupportRun)
             .where(SupportRun.id == run_id, SupportRun.status == "running")
@@ -272,7 +300,9 @@ async def feedback(r: Resources, p: Principal, run_id: UUID, data: FeedbackIn) -
         run.feedback = data.feedback
 
 
-async def tool_principal(r: Resources, run_id: UUID, token: str) -> Principal:
+async def tool_principal(
+    r: Resources, run_id: UUID, token: str, *, count_tool: bool = True
+) -> Principal:
     if len(token) > 128:
         raise missing()
     async with r.sessions.begin() as session:
@@ -287,10 +317,73 @@ async def tool_principal(r: Resources, run_id: UUID, token: str) -> Principal:
         await session.refresh(run, with_for_update=True)
         if run.status != "running" or run.expires_at <= now():
             raise CommerceError("SUPPORT_EXPIRED", "本轮客服权限已结束。", 401)
-        if run.tool_calls >= 12:
+        preference = await session.scalar(
+            select(SupportPreference).where(SupportPreference.user_id == p.id)
+        )
+        if preference is None or preference.generation != run.memory_generation:
+            raise CommerceError("MEMORY_CHANGED", "偏好设置已变化，请重新提问。", 409)
+        if count_tool and run.tool_calls >= 12:
             raise CommerceError("SUPPORT_TOOL_LIMIT", "本轮查询已达上限，请根据已有结果回复。", 429)
-        run.tool_calls += 1
+        if count_tool:
+            run.tool_calls += 1
         return p
+
+
+async def run_state(r: Resources, run_id: UUID, token: str) -> dict[str, object]:
+    p = await tool_principal(r, run_id, token, count_tool=False)
+    async with r.sessions() as session:
+        run = await session.get(SupportRun, run_id)
+        if run is None:
+            raise missing()
+        return {
+            "status": run.status,
+            "memory_generation": run.memory_generation,
+            "user_id": str(p.id),
+            "conversation_id": str(run.conversation_id),
+        }
+
+
+async def record_event(r: Resources, run_id: UUID, token: str, data: SupportEventIn) -> None:
+    p = await tool_principal(r, run_id, token, count_tool=False)
+    async with r.sessions.begin() as session:
+        await authorize(session, p, lock=True)
+        run = await session.scalar(
+            select(SupportRun).where(SupportRun.id == run_id).with_for_update()
+        )
+        if run is None or run.status != "running" or run.expires_at <= now():
+            return
+        events = run.runtime.get("events", [])
+        if isinstance(events, list) and len(events) < 80:
+            run.runtime = {**run.runtime, "events": [*events, data.model_dump(mode="json")]}
+
+
+async def cancel_run(r: Resources, p: Principal, run_id: UUID) -> None:
+    async with r.sessions.begin() as session:
+        await customer_memory.lock_preferences(session, p)
+        run = await session.scalar(
+            select(SupportRun)
+            .where(SupportRun.id == run_id, SupportRun.user_id == p.id)
+            .with_for_update()
+        )
+        if run is None:
+            raise missing()
+        if run.status != "running":
+            return
+        run.status = "failed"
+        run.error_code = "SUPPORT_CANCELLED"
+        run.token_hash = ""
+    config = support_config()
+    if config.bridge_secret:
+        try:
+            async with httpx.AsyncClient(trust_env=False, follow_redirects=False) as client:
+                await client.post(
+                    f"{config.adapter_url.rstrip('/')}/runs/{run_id}/cancel",
+                    headers={"Authorization": f"Bearer {config.bridge_secret.get_secret_value()}"},
+                    timeout=3,
+                )
+        except httpx.HTTPError:
+            # Backend revocation is already committed, even if the bridge is down.
+            log.warning("support_cancel_bridge_unavailable", run_id=str(run_id))
 
 
 async def call_tool(r: Resources, run_id: UUID, token: str, data: SupportTool) -> dict[str, object]:
@@ -468,12 +561,14 @@ async def call_tool(r: Resources, run_id: UUID, token: str, data: SupportTool) -
     if feature:
         await customer_memory.record_usage(r, p, run_id, feature)
     async with r.sessions.begin() as session:
-        await authorize(session, p, lock=True)
+        preference = await customer_memory.lock_preferences(session, p)
         run = await session.scalar(
             select(SupportRun).where(SupportRun.id == run_id).with_for_update()
         )
         if run is None or run.status != "running" or run.expires_at <= now():
             raise CommerceError("SUPPORT_EXPIRED", "本轮客服权限已结束。", 401)
+        if run.memory_generation != preference.generation:
+            raise CommerceError("MEMORY_CHANGED", "偏好设置已变化，请重新提问。", 409)
         merged = {link["href"]: link for link in run.links}
         merged.update({link["href"]: link for link in links})
         run.links = list(merged.values())[-20:]
