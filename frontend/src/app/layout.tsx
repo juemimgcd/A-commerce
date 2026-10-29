@@ -7,6 +7,7 @@ import "@fontsource/geist/600.css";
 import "@fontsource/geist/700.css";
 import "./globals.css";
 import "./storefront.css";
+import "./support.css";
 import { Providers } from "@/components/providers";
 import { Shell } from "@/components/shell";
 import { Loading } from "@/components/ui";

@@ -1,6 +1,6 @@
 # pi 接入、授权与 API 契约
 
-状态：**延后到 M7 的参考契约，尚未实现，不作为后端 v1.0 发布前置条件。** 先完成后端业务、故障恢复和 1 万在线用户验收，再实现此文。前缀统一 `/api/v1`，Python 后端不实现模型循环。
+状态：**只读客服、用户偏好记忆和商家画像已实现，启动及边界见 [客服适配器](../pi-adapter/README.md)。下文的交易 grant/action、主动跟进和事件消费仍为未来参考契约，不作为后端 v1.0 发布前置条件。** 前缀统一 `/api/v1`，Python 后端不实现模型循环。
 
 普通买家确认报价后直接调用 customer/orders，不需要 agent_grant/action 或确认 CLI。M7 为 Agent 增加独立授权批准入口，并复用后端已有交易 service；本文中的 grant/action 接口与表均为未来增量。
 
@@ -17,7 +17,7 @@
 
 ## 2. SDK 依据与适配位置
 
-接入代码计划位于 `A-commerce/pi-adapter`，独立 TypeScript 包。之前已读本机：
+已实现的客服接入代码位于 `A-commerce/pi-adapter`，是独立 TypeScript 包，固定使用 `@earendil-works/pi-coding-agent@1.4.0` 和 TypeBox 运行时校验。下面是未来交易扩展的 SDK 参考位置：
 
 - `/Users/jquery/python_files/pi/packages/coding-agent/examples/sdk/README.md`
 - `/Users/jquery/python_files/pi/packages/coding-agent/examples/sdk/05-tools.ts`

@@ -5,6 +5,8 @@ export const runtime = "nodejs";
 const uuid = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const rules: Record<string, RegExp[]> = {
   GET: [
+    /^(customer\/(memory|support\/conversations)|admin\/(customer-insights|customer-audience))$/,
+    new RegExp(`^customer/support/conversations/${uuid}/messages$`),
     /^(customer)\/(store|me|profile|categories|products|cart|favorites|addresses|sessions|notification-preferences|notifications|orders|returns|events)$/,
     new RegExp(
       `^customer/(products/${uuid}(/media)?|media/${uuid}|quotes/${uuid}|returns/${uuid}|event-snapshots/${uuid}|orders/${uuid}(/(shipment|history|payment-session|return-options|refunds))?)$`,
@@ -16,6 +18,8 @@ const rules: Record<string, RegExp[]> = {
     ),
   ],
   POST: [
+    /^customer\/(memory\/items|support\/conversations)$/,
+    new RegExp(`^customer/support/conversations/${uuid}/messages$`),
     /^customer\/(auth\/(login|logout|register|password|reset-request|reset-confirm)|addresses|quotes|orders|event-snapshots)$/,
     new RegExp(
       `^customer/(orders/${uuid}/(cancel|simulate-payment|returns)|returns/${uuid}/ship|notifications/${uuid}/read)$`,
@@ -26,12 +30,17 @@ const rules: Record<string, RegExp[]> = {
     ),
   ],
   PUT: [
+    /^customer\/memory\/settings$/,
+    new RegExp(`^customer/(memory/items/${uuid}(/decision)?|support/runs/${uuid}/feedback)$`),
     /^customer\/notification-preferences$/,
     /^admin\/shipping-rules$/,
     new RegExp(`^customer/(addresses/${uuid}|cart/items/${uuid}|favorites/${uuid})$`),
     new RegExp(`^admin/(products/${uuid}(/skus/${uuid})?|staff/${uuid})$`),
   ],
-  DELETE: [new RegExp(`^(customer/(sessions|favorites)|admin/sessions)/${uuid}$`)],
+  DELETE: [
+    /^customer\/memory$/,
+    new RegExp(`^(customer/(sessions|favorites)|admin/sessions)/${uuid}$`),
+  ],
 };
 
 function failure(status: number, code: string, message: string) {

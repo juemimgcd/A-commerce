@@ -1,0 +1,211 @@
+@layer components {
+  .support-layout {
+    display: grid;
+    grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+  .support-sidebar,
+  .support-conversations,
+  .support-chat,
+  .support-messages,
+  .support-turn,
+  .support-answer,
+  .support-composer,
+  .support-welcome {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+  .support-sidebar > p {
+    font-size: 14px;
+  }
+  .support-conversations {
+    gap: 4px;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .support-conversations button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    min-height: 48px;
+    text-align: left;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+  }
+  .support-conversations button span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .support-conversations button svg {
+    flex-shrink: 0;
+  }
+  .support-conversations button:hover,
+  .support-conversations button[aria-current="page"] {
+    background: var(--primary-soft);
+    border-color: var(--border);
+  }
+  .support-conversations button:active {
+    transform: translateY(1px);
+  }
+  .support-messages {
+    gap: 32px;
+  }
+  .support-welcome {
+    align-items: flex-start;
+    padding: 24px 0;
+  }
+  .support-user {
+    align-self: flex-end;
+    max-width: 90%;
+    background: var(--primary-soft);
+    padding: 16px;
+    border-radius: var(--radius-lg);
+  }
+  .support-user strong,
+  .support-answer > strong {
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .support-user p {
+    margin-top: 8px;
+  }
+  .support-answer {
+    padding: 0 8px;
+    overflow-wrap: anywhere;
+  }
+  .support-links,
+  .support-feedback,
+  .support-suggestions,
+  .support-compose-actions,
+  .support-section-heading {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .support-links .button {
+    font-size: 14px;
+    min-width: 0;
+    white-space: normal;
+    text-align: left;
+  }
+  .support-links .button svg {
+    flex-shrink: 0;
+  }
+  .support-feedback {
+    font-size: 14px;
+  }
+  .support-feedback .button {
+    padding: 8px;
+    font-size: 14px;
+  }
+  .support-feedback .button[aria-pressed="true"] {
+    background: var(--primary-soft);
+    color: var(--primary-contrast);
+  }
+  .support-composer {
+    margin-top: 24px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .support-compose-actions > small {
+    margin-right: auto;
+  }
+  .support-section-heading {
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .memory-row {
+    padding: 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    background: var(--canvas);
+    border-radius: var(--radius);
+  }
+  .memory-row > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .memory-row h3 {
+    margin: 4px 0;
+  }
+  .support-settings {
+    align-self: start;
+  }
+  .insight-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  .insight-metrics > div {
+    padding: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .insight-metrics dt {
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .insight-metrics dd {
+    font-size: 30px;
+    font-weight: 600;
+    margin-top: 8px;
+  }
+  .support-audience {
+    margin-top: 24px;
+  }
+  .support-user-id {
+    display: block;
+    color: var(--muted);
+    max-width: 180px;
+    overflow-wrap: anywhere;
+  }
+}
+@layer responsive {
+  @media (max-width: 1024px) {
+    .support-layout {
+      grid-template-columns: minmax(160px, 200px) minmax(0, 1fr);
+      gap: 16px;
+    }
+    .insight-metrics {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+  }
+  @media (max-width: 768px) {
+    .support-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .support-conversations {
+      max-height: 160px;
+    }
+    .support-sidebar > p {
+      display: none;
+    }
+    .support-composer {
+      padding: 12px;
+    }
+    .support-user {
+      max-width: 100%;
+    }
+    .support-feedback > small {
+      flex-basis: 100%;
+    }
+    .insight-metrics > div {
+      padding: 16px;
+    }
+  }
+}

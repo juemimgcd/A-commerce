@@ -3,13 +3,13 @@ import { type NextRequest, NextResponse } from "next/server";
 const uuid = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const pages = [
   /^\/$/,
-  /^\/(products|compare|login|register|reset-password|cart|checkout|help|orders|returns)$/,
+  /^\/(products|compare|login|register|reset-password|cart|checkout|help|support|orders|returns)$/,
   /^\/policies\/(privacy|terms)$/,
-  /^\/account(\/(addresses|favorites|notifications|security))?$/,
+  /^\/account(\/(addresses|favorites|notifications|security|memory))?$/,
   new RegExp(`^/products/${uuid}$`),
   new RegExp(`^/orders/${uuid}(/(payment|return))?$`),
   new RegExp(`^/returns/${uuid}$`),
-  /^\/admin(\/(login|account|products|inventory|orders|returns|refunds|reports|reconciliations|operations|audits|shipping|staff))?$/,
+  /^\/admin(\/(login|account|products|inventory|orders|returns|refunds|reports|customer-insights|reconciliations|operations|audits|shipping|staff))?$/,
   new RegExp(`^/admin/products/(new|${uuid})$`),
   new RegExp(`^/admin/(inventory|orders|returns)/${uuid}$`),
 ];
