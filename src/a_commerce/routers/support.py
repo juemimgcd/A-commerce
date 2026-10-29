@@ -18,6 +18,7 @@ from a_commerce.schemas.support import (
     MemoryOut,
     MemoryProfile,
     MessageIn,
+    SupportEventIn,
     SupportRunOut,
     SupportSettingsIn,
     SupportTool,
@@ -61,6 +62,27 @@ async def send_message(
 @router.put("/customer/support/runs/{run_id}/feedback", status_code=204)
 async def feedback(run_id: UUID, data: FeedbackIn, r: R, p: Customer) -> Response:
     await support.feedback(r, p, run_id, data)
+    return Response(status_code=204)
+
+
+@router.post("/customer/support/runs/{run_id}/cancel", status_code=204)
+async def cancel(run_id: UUID, r: R, p: Customer) -> Response:
+    await support.cancel_run(r, p, run_id)
+    return Response(status_code=204)
+
+
+@router.get("/agent/support/runs/{run_id}/state")
+async def run_state(run_id: UUID, r: R, credentials: Credentials) -> dict[str, object]:
+    if credentials is None:
+        raise CommerceError("UNAUTHENTICATED", "需要本轮客服能力凭证。", 401)
+    return await support.run_state(r, run_id, credentials.credentials)
+
+
+@router.post("/agent/support/runs/{run_id}/events", status_code=204)
+async def event(run_id: UUID, data: SupportEventIn, r: R, credentials: Credentials) -> Response:
+    if credentials is None:
+        raise CommerceError("UNAUTHENTICATED", "需要本轮客服能力凭证。", 401)
+    await support.record_event(r, run_id, credentials.credentials, data)
     return Response(status_code=204)
 
 

@@ -1682,6 +1682,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/customer/support/runs/{run_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel */
+        post: operations["cancel_api_v1_customer_support_runs__run_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/support/runs/{run_id}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Run State */
+        get: operations["run_state_api_v1_agent_support_runs__run_id__state_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/support/runs/{run_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Event */
+        post: operations["event_api_v1_agent_support_runs__run_id__events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customer/memory": {
         parameters: {
             query?: never;
@@ -3349,6 +3400,25 @@ export interface components {
             /** Terms Text */
             terms_text: string | null;
         };
+        /** SupportEventIn */
+        SupportEventIn: {
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "turn_start" | "tool_execution_start" | "tool_execution_end" | "compaction_start" | "compaction_end" | "auto_retry_start" | "auto_retry_end" | "agent_end";
+            /** Elapsed Ms */
+            elapsed_ms: number;
+            /** Tool */
+            tool?: string | null;
+            /** Call Id */
+            call_id?: string | null;
+            /**
+             * Is Error
+             * @default false
+             */
+            is_error: boolean;
+        };
         /** SupportLink */
         SupportLink: {
             /** Title */
@@ -3393,6 +3463,10 @@ export interface components {
             links: components["schemas"]["SupportLink"][];
             /** Feedback */
             feedback: ("helpful" | "unhelpful") | null;
+            /** Runtime */
+            runtime: {
+                [key: string]: unknown;
+            };
         };
         /** SupportSettingsIn */
         SupportSettingsIn: {
@@ -6852,6 +6926,101 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["FeedbackIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_api_v1_customer_support_runs__run_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_state_api_v1_agent_support_runs__run_id__state_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    event_api_v1_agent_support_runs__run_id__events_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupportEventIn"];
             };
         };
         responses: {

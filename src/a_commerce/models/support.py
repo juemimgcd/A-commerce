@@ -49,6 +49,7 @@ class SupportRun(Record):
     tool_calls: Mapped[int] = mapped_column(default=0)
     links: Mapped[list[dict[str, str]]] = mapped_column(JSONB, default=list)
     feedback: Mapped[str | None] = mapped_column(String(16))
+    runtime: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
 
 
 class CustomerMemory(Record):

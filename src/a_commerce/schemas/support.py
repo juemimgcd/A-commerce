@@ -85,6 +85,7 @@ class SupportRunOut(Schema):
     created_at: datetime
     links: list[SupportLink]
     feedback: Literal["helpful", "unhelpful"] | None
+    runtime: dict[str, object]
 
 
 class FeedbackIn(Schema):
@@ -147,6 +148,31 @@ SupportTool = Annotated[
 
 class AdapterReply(Schema):
     text: str = Field(min_length=1, max_length=12000)
+    session_id: UUID
+    outcome: Literal["answered", "limited"]
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+    cost: float = Field(ge=0, allow_inf_nan=False)
+    total_tokens: int = Field(ge=0)
+    provider: str = Field(max_length=100)
+    model: str = Field(max_length=200)
+
+
+class SupportEventIn(Schema):
+    type: Literal[
+        "turn_start",
+        "tool_execution_start",
+        "tool_execution_end",
+        "compaction_start",
+        "compaction_end",
+        "auto_retry_start",
+        "auto_retry_end",
+        "agent_end",
+    ]
+    elapsed_ms: int = Field(ge=0, le=180000)
+    tool: str | None = Field(default=None, max_length=80, pattern=r"^commerce_[a-z_]+$")
+    call_id: str | None = Field(default=None, max_length=200)
+    is_error: bool = False
 
 
 class InsightCount(Schema):
