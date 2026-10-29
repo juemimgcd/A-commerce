@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff AS uv
 # Keep the runtime aligned with pyproject.toml and uv.lock (Python 3.13 only).
-FROM python:3.13.14-slim@sha256:9662417aace5ae7b8e2609cce472b72a8958e134ba372808abe9cc1a0c0125e6
+FROM python:3.15.0-slim@sha256:f5b92f2a669a4c347044f29367f31983280b648250ca94dea66f98c53bc87e58
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
