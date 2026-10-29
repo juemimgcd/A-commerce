@@ -14,6 +14,7 @@ import {
   ReturnScreen,
 } from "@/features/commerce";
 import { AccountScreen, CompareScreen, HelpScreen } from "@/features/account";
+import { SupportScreen, MemoryScreen, CustomerInsightsScreen } from "@/features/support";
 import { AdminProductsScreen, AdminProductScreen, InventoryScreen } from "@/features/admin-catalog";
 import {
   AdminHome,
@@ -45,6 +46,7 @@ const titles: Record<string, string> = {
   returns: "我的售后",
   account: "我的账户",
   help: "购物帮助",
+  support: "商城客服",
   admin: "商家工作台",
   policies: "购物政策",
 };
@@ -142,6 +144,8 @@ export default async function Page(props: Props) {
   else if (area === "checkout" && route.length === 1) content = <CheckoutScreen />;
   else if (area === "compare" && route.length === 1) content = <CompareScreen />;
   else if (area === "help" && route.length === 1) content = <HelpScreen />;
+  else if (area === "support" && route.length === 1) content = <SupportScreen />;
+  else if (area === "account" && id === "memory" && route.length === 2) content = <MemoryScreen />;
   else if (area === "policies" && route.length === 2 && ["privacy", "terms"].includes(id))
     content = <HelpScreen policy={id === "privacy" ? "privacy" : "terms"} />;
   else if (
@@ -170,6 +174,7 @@ export default async function Page(props: Props) {
     if (route.length === 1) content = <AdminHome />;
     else if (id === "login" && route.length === 2) content = <AuthScreen admin />;
     else if (id === "account" && route.length === 2) content = <AccountScreen admin />;
+    else if (id === "customer-insights" && route.length === 2) content = <CustomerInsightsScreen />;
     else if (id === "products" && route.length === 2) content = <AdminProductsScreen />;
     else if (id === "products" && route.length === 3 && (child === "new" || uuid.test(child)))
       content = <AdminProductScreen id={child} />;

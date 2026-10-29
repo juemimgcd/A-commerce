@@ -93,6 +93,8 @@ async def list_products(
     max_price: int,
     brand: str = "",
     attributes: dict[str, str] | None = None,
+    *,
+    in_stock: bool = False,
 ) -> ProductPage:
     if max_price < min_price:
         raise CommerceError("PRICE_RANGE", "最高价格不能低于最低价格。", 422)
@@ -108,16 +110,17 @@ async def list_products(
                 stmt = stmt.where(Product.brand == brand)
             if cursor:
                 stmt = stmt.where(Product.id > cursor)
-            stmt = stmt.where(
-                select(SKU.id)
-                .where(
-                    SKU.product_id == Product.id,
-                    SKU.active.is_(True),
-                    SKU.price_fen.between(min_price, max_price),
-                    SKU.attributes.contains(attributes or {}),
-                )
-                .exists()
+            matching_sku = select(SKU.id).where(
+                SKU.product_id == Product.id,
+                SKU.active.is_(True),
+                SKU.price_fen.between(min_price, max_price),
+                SKU.attributes.contains(attributes or {}),
             )
+            if in_stock:
+                matching_sku = matching_sku.join(Stock, Stock.sku_id == SKU.id).where(
+                    Stock.on_hand - Stock.reserved - Stock.allocated > 0
+                )
+            stmt = stmt.where(matching_sku.exists())
             products = list(
                 (await session.scalars(stmt.order_by(Product.id).limit(limit + 1))).all()
             )
@@ -126,7 +129,15 @@ async def list_products(
             return ProductPage(items=output, next_cursor=output[-1].id if more else None)
 
     # 只缓存无搜索词的第一页，避免任意查询组合生成海量缓存 key。
-    if query or cursor or brand or attributes or min_price != 0 or max_price != 100000000:
+    if (
+        query
+        or cursor
+        or brand
+        or attributes
+        or in_stock
+        or min_price != 0
+        or max_price != 100000000
+    ):
         return await load()
     key = f"catalog:v1:{category}:{limit}:{min_price}:{max_price}"
     return await cached_catalog(r, key, load)

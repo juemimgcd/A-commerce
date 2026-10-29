@@ -5762,6 +5762,693 @@
         }
       }
     },
+    "/api/v1/customer/support/conversations": {
+      "get": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Conversations",
+        "operationId": "conversations_api_v1_customer_support_conversations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConversationOut"
+                  },
+                  "type": "array",
+                  "title": "Response Conversations Api V1 Customer Support Conversations Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Create Conversation",
+        "operationId": "create_conversation_api_v1_customer_support_conversations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/customer/support/conversations/{conversation_id}/messages": {
+      "get": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Messages",
+        "operationId": "messages_api_v1_customer_support_conversations__conversation_id__messages_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SupportRunOut"
+                  },
+                  "title": "Response Messages Api V1 Customer Support Conversations  Conversation Id  Messages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Send Message",
+        "operationId": "send_message_api_v1_customer_support_conversations__conversation_id__messages_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportRunOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/customer/support/runs/{run_id}/feedback": {
+      "put": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Feedback",
+        "operationId": "feedback_api_v1_customer_support_runs__run_id__feedback_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/customer/memory": {
+      "get": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Memory",
+        "operationId": "memory_api_v1_customer_memory_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryProfile"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Clear Memory",
+        "operationId": "clear_memory_api_v1_customer_memory_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/customer/memory/settings": {
+      "put": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Settings",
+        "operationId": "settings_api_v1_customer_memory_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportSettingsIn"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/customer/memory/items": {
+      "post": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Add Memory",
+        "operationId": "add_memory_api_v1_customer_memory_items_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemoryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/customer/memory/items/{memory_id}": {
+      "put": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Edit Memory",
+        "operationId": "edit_memory_api_v1_customer_memory_items__memory_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "memory_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Memory Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemoryIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/customer/memory/items/{memory_id}/decision": {
+      "put": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Decide Memory",
+        "operationId": "decide_memory_api_v1_customer_memory_items__memory_id__decision_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "memory_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Memory Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemoryDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/customer-insights": {
+      "get": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Insights",
+        "operationId": "insights_api_v1_admin_customer_insights_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsightsOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/customer-audience": {
+      "get": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Audience",
+        "operationId": "audience_api_v1_admin_customer_audience_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 30,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "marketing_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Marketing Only"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudiencePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/support/runs/{run_id}/tools": {
+      "post": {
+        "tags": [
+          "客服与用户记忆"
+        ],
+        "summary": "Tool",
+        "operationId": "tool_api_v1_agent_support_runs__run_id__tools_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/SearchTool"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ProductTool"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OrderTool"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ReturnTool"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SimpleTool"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ProposeMemoryTool"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "tool",
+                  "mapping": {
+                    "search_products": "#/components/schemas/SearchTool",
+                    "recommend_products": "#/components/schemas/SearchTool",
+                    "get_product": "#/components/schemas/ProductTool",
+                    "get_order": "#/components/schemas/OrderTool",
+                    "get_shipment": "#/components/schemas/OrderTool",
+                    "get_return_options": "#/components/schemas/OrderTool",
+                    "get_return": "#/components/schemas/ReturnTool",
+                    "get_categories": "#/components/schemas/SimpleTool",
+                    "get_account": "#/components/schemas/SimpleTool",
+                    "get_cart": "#/components/schemas/SimpleTool",
+                    "get_orders": "#/components/schemas/SimpleTool",
+                    "get_returns": "#/components/schemas/SimpleTool",
+                    "get_policy": "#/components/schemas/SimpleTool",
+                    "get_memory": "#/components/schemas/SimpleTool",
+                    "propose_memory": "#/components/schemas/ProposeMemoryTool"
+                  }
+                },
+                "title": "Data"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Tool Api V1 Agent Support Runs  Run Id  Tools Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/callbacks/shipping/simulator": {
       "post": {
         "tags": [
@@ -6014,6 +6701,118 @@
           "version"
         ],
         "title": "AddressOut"
+      },
+      "AudiencePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AudienceUser"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "AudiencePage"
+      },
+      "AudiencePreference": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "category",
+              "brand",
+              "budget",
+              "attribute",
+              "service"
+            ],
+            "title": "Kind"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Value"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "value",
+          "id",
+          "updated_at"
+        ],
+        "title": "AudiencePreference"
+      },
+      "AudienceUser": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "marketing_enabled": {
+            "type": "boolean",
+            "title": "Marketing Enabled"
+          },
+          "preferences": {
+            "items": {
+              "$ref": "#/components/schemas/AudiencePreference"
+            },
+            "type": "array",
+            "title": "Preferences"
+          },
+          "usage": {
+            "items": {
+              "$ref": "#/components/schemas/UsageOut"
+            },
+            "type": "array",
+            "title": "Usage"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "user_id",
+          "email",
+          "marketing_enabled",
+          "preferences",
+          "usage"
+        ],
+        "title": "AudienceUser"
       },
       "AuditOut": {
         "properties": {
@@ -6312,6 +7111,46 @@
         ],
         "title": "ChangeOut"
       },
+      "ConversationIn": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Title",
+            "default": "新的客服咨询"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ConversationIn"
+      },
+      "ConversationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "created_at"
+        ],
+        "title": "ConversationOut"
+      },
       "Credentials": {
         "properties": {
           "email": {
@@ -6504,6 +7343,24 @@
         ],
         "title": "FailureOut"
       },
+      "FeedbackIn": {
+        "properties": {
+          "feedback": {
+            "type": "string",
+            "enum": [
+              "helpful",
+              "unhelpful"
+            ],
+            "title": "Feedback"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "feedback"
+        ],
+        "title": "FeedbackIn"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -6603,6 +7460,75 @@
           "row"
         ],
         "title": "ImportResult"
+      },
+      "InsightCount": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "users": {
+            "type": "integer",
+            "title": "Users"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "value",
+          "users"
+        ],
+        "title": "InsightCount"
+      },
+      "InsightsOut": {
+        "properties": {
+          "shared_users": {
+            "type": "integer",
+            "title": "Shared Users"
+          },
+          "marketing_users": {
+            "type": "integer",
+            "title": "Marketing Users"
+          },
+          "interests": {
+            "items": {
+              "$ref": "#/components/schemas/InsightCount"
+            },
+            "type": "array",
+            "title": "Interests"
+          },
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/InsightCount"
+            },
+            "type": "array",
+            "title": "Features"
+          },
+          "helpful": {
+            "type": "integer",
+            "title": "Helpful"
+          },
+          "unhelpful": {
+            "type": "integer",
+            "title": "Unhelpful"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "shared_users",
+          "marketing_users",
+          "interests",
+          "features",
+          "helpful",
+          "unhelpful"
+        ],
+        "title": "InsightsOut"
       },
       "InspectionIn": {
         "properties": {
@@ -6744,6 +7670,166 @@
           "size_bytes"
         ],
         "title": "MediaOut"
+      },
+      "MemoryDecision": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "confirmed",
+              "dismissed"
+            ],
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "MemoryDecision"
+      },
+      "MemoryIn": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "category",
+              "brand",
+              "budget",
+              "attribute",
+              "service"
+            ],
+            "title": "Kind"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "value"
+        ],
+        "title": "MemoryIn"
+      },
+      "MemoryOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "category",
+              "brand",
+              "budget",
+              "attribute",
+              "service"
+            ],
+            "title": "Kind"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Value"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "evidence": {
+            "type": "string",
+            "title": "Evidence"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "candidate",
+              "confirmed",
+              "dismissed"
+            ],
+            "title": "Status"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "value",
+          "id",
+          "evidence",
+          "source",
+          "status",
+          "updated_at"
+        ],
+        "title": "MemoryOut"
+      },
+      "MemoryProfile": {
+        "properties": {
+          "settings": {
+            "$ref": "#/components/schemas/SupportSettingsIn"
+          },
+          "memories": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryOut"
+            },
+            "type": "array",
+            "title": "Memories"
+          },
+          "usage": {
+            "items": {
+              "$ref": "#/components/schemas/UsageOut"
+            },
+            "type": "array",
+            "title": "Usage"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "settings",
+          "memories",
+          "usage"
+        ],
+        "title": "MemoryProfile"
+      },
+      "MessageIn": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Request Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request_id",
+          "text"
+        ],
+        "title": "MessageIn"
       },
       "MovementOut": {
         "properties": {
@@ -7139,6 +8225,31 @@
         ],
         "title": "OrderPage"
       },
+      "OrderTool": {
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "get_order",
+              "get_shipment",
+              "get_return_options"
+            ],
+            "title": "Tool"
+          },
+          "order_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Order Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tool",
+          "order_id"
+        ],
+        "title": "OrderTool"
+      },
       "PasswordChange": {
         "properties": {
           "current_password": {
@@ -7345,6 +8456,27 @@
         ],
         "title": "ProductPage"
       },
+      "ProductTool": {
+        "properties": {
+          "tool": {
+            "type": "string",
+            "const": "get_product",
+            "title": "Tool"
+          },
+          "product_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Product Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tool",
+          "product_id"
+        ],
+        "title": "ProductTool"
+      },
       "ProfileOut": {
         "properties": {
           "id": {
@@ -7389,6 +8521,48 @@
           "authenticated_at"
         ],
         "title": "ProfileOut"
+      },
+      "ProposeMemoryTool": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "category",
+              "brand",
+              "budget",
+              "attribute",
+              "service"
+            ],
+            "title": "Kind"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Value"
+          },
+          "tool": {
+            "type": "string",
+            "const": "propose_memory",
+            "title": "Tool"
+          },
+          "evidence": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 2,
+            "title": "Evidence"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "value",
+          "tool",
+          "evidence"
+        ],
+        "title": "ProposeMemoryTool"
       },
       "QuoteIn": {
         "properties": {
@@ -8009,6 +9183,27 @@
         ],
         "title": "ReturnRefundOut"
       },
+      "ReturnTool": {
+        "properties": {
+          "tool": {
+            "type": "string",
+            "const": "get_return",
+            "title": "Tool"
+          },
+          "return_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Return Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tool",
+          "return_id"
+        ],
+        "title": "ReturnTool"
+      },
       "RunOut": {
         "properties": {
           "id": {
@@ -8163,6 +9358,74 @@
           "available"
         ],
         "title": "SKUOut"
+      },
+      "SearchTool": {
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "search_products",
+              "recommend_products"
+            ],
+            "title": "Tool"
+          },
+          "q": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Q",
+            "default": ""
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "brand": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Brand",
+            "default": ""
+          },
+          "cursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cursor"
+          },
+          "min_price": {
+            "type": "integer",
+            "maximum": 100000000.0,
+            "minimum": 0.0,
+            "title": "Min Price",
+            "default": 0
+          },
+          "max_price": {
+            "type": "integer",
+            "maximum": 100000000.0,
+            "minimum": 0.0,
+            "title": "Max Price",
+            "default": 100000000
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tool"
+        ],
+        "title": "SearchTool"
       },
       "SessionOut": {
         "properties": {
@@ -8407,6 +9670,29 @@
           "next_cursor"
         ],
         "title": "ShippingRulePage"
+      },
+      "SimpleTool": {
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "get_categories",
+              "get_account",
+              "get_cart",
+              "get_orders",
+              "get_returns",
+              "get_policy",
+              "get_memory"
+            ],
+            "title": "Tool"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tool"
+        ],
+        "title": "SimpleTool"
       },
       "SnapshotOut": {
         "properties": {
@@ -8723,6 +10009,136 @@
         ],
         "title": "StoreOut"
       },
+      "SupportLink": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "href": {
+            "type": "string",
+            "title": "Href"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "href"
+        ],
+        "title": "SupportLink"
+      },
+      "SupportRunOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "conversation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Conversation Id"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Request Id"
+          },
+          "user_text": {
+            "type": "string",
+            "title": "User Text"
+          },
+          "assistant_text": {
+            "type": "string",
+            "title": "Assistant Text"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/SupportLink"
+            },
+            "type": "array",
+            "title": "Links"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "helpful",
+                  "unhelpful"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feedback"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "conversation_id",
+          "request_id",
+          "user_text",
+          "assistant_text",
+          "status",
+          "error_code",
+          "created_at",
+          "links",
+          "feedback"
+        ],
+        "title": "SupportRunOut"
+      },
+      "SupportSettingsIn": {
+        "properties": {
+          "memory_enabled": {
+            "type": "boolean",
+            "title": "Memory Enabled",
+            "default": false
+          },
+          "share_with_merchant": {
+            "type": "boolean",
+            "title": "Share With Merchant",
+            "default": false
+          },
+          "marketing_enabled": {
+            "type": "boolean",
+            "title": "Marketing Enabled",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SupportSettingsIn"
+      },
       "TokenOut": {
         "properties": {
           "token": {
@@ -8748,6 +10164,31 @@
           "expires_at"
         ],
         "title": "TokenOut"
+      },
+      "UsageOut": {
+        "properties": {
+          "feature": {
+            "type": "string",
+            "title": "Feature"
+          },
+          "uses": {
+            "type": "integer",
+            "title": "Uses"
+          },
+          "last_used_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Used At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "feature",
+          "uses",
+          "last_used_at"
+        ],
+        "title": "UsageOut"
       },
       "ValidationError": {
         "properties": {

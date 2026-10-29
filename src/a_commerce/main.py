@@ -36,7 +36,7 @@ from a_commerce.errors import CommerceError
 from a_commerce.observability.background import BACKGROUND_METRIC_NAMES, MetricSnapshot, collect
 from a_commerce.observability.body_limit import BodyLimitMiddleware
 from a_commerce.observability.runtime import RuntimeMetrics, pool_metrics
-from a_commerce.routers import admin, callbacks, customer, operations, storefront
+from a_commerce.routers import admin, callbacks, customer, operations, storefront, support
 
 REQUESTS = Counter("commerce_http_requests_total", "HTTP 请求数", ["method", "route", "status"])
 LATENCY = Histogram("commerce_http_seconds", "HTTP 响应耗时", ["method", "route"])
@@ -62,7 +62,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(BodyLimitMiddleware)
     # 回调部署拥有独立进程与连接池，且不挂载买家/管理员路由；流量无法串入另一组。
     if settings.api_role in {"all", "public"}:
-        for router in (customer.router, admin.router, operations.router, storefront.router):
+        for router in (
+            customer.router,
+            admin.router,
+            operations.router,
+            storefront.router,
+            support.router,
+        ):
             app.include_router(router, dependencies=[Depends(entry_limit)])
     if settings.api_role in {"all", "callbacks"}:
         app.include_router(callbacks.router)
@@ -152,7 +158,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise CommerceError("DRAINING", "当前实例正在退出。", 503, True)
         async with request.app.state.resources.sessions() as session:
             revision = await session.scalar(text("SELECT version_num FROM alembic_version"))
-        if revision != "0005_case_fence":
+        if revision != "0006_support":
             raise CommerceError("MIGRATION_REQUIRED", "数据库迁移版本不匹配。", 503)
         return {"status": "ready", "revision": revision}
 

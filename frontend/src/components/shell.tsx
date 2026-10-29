@@ -32,6 +32,7 @@ export const adminLinks = [
   { href: "/admin/returns", title: "售后申请", permission: "aftersales", icon: ArrowsClockwise },
   { href: "/admin/refunds", title: "退款", permission: "aftersales", icon: Receipt },
   { href: "/admin/reports", title: "经营报表", permission: "audit", icon: ChartBar },
+  { href: "/admin/customer-insights", title: "用户画像", permission: "audit", icon: Users },
   { href: "/admin/reconciliations", title: "资金对账", permission: "audit", icon: ShieldCheck },
   { href: "/admin/operations", title: "异常任务", permission: "audit", icon: SlidersHorizontal },
   { href: "/admin/audits", title: "操作审计", permission: "audit", icon: ShieldCheck },
@@ -49,6 +50,7 @@ const mobileLinks = [
   ["/account/favorites", "我的收藏"],
   ["/returns", "售后进度"],
   ["/help", "购物帮助"],
+  ["/support", "商城客服"],
 ] as const;
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -228,6 +230,7 @@ export function Shell({ children }: { children: ReactNode }) {
                       ["/products", "全部商品"],
                       ["/compare", "规格比较"],
                       ["/help", "选购指南"],
+                      ["/support", "商城客服"],
                     ].map(([href, title]) => (
                       <Link
                         key={href}
@@ -264,6 +267,7 @@ export function Shell({ children }: { children: ReactNode }) {
               <nav aria-label="帮助与服务">
                 <h2>帮助与服务</h2>
                 <Link href="/help">购物帮助</Link>
+                <Link href="/support">商城客服</Link>
                 <Link href="/returns">售后进度</Link>
                 <Link href="/account">账户管理</Link>
               </nav>
@@ -326,6 +330,7 @@ export function AccountNavigation({ admin = false }: { admin?: boolean }) {
                 ["/account/addresses", "收货地址"],
                 ["/account/favorites", "收藏"],
                 ["/account/notifications", "通知"],
+                ["/account/memory", "偏好与记忆"],
                 ["/account/security", "登录与安全"],
               ]
           ).map(([href, title]) => (
