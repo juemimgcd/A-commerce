@@ -10,6 +10,8 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -23,6 +25,9 @@ ROOT = Path(__file__).resolve().parents[1]
 async def test_backup_and_restore_round_trip(backend: Backend, tmp_path: Path) -> None:
     project = os.environ["COMMERCE_TEST_PROJECT"]
     assert project.startswith("commerce-test-")
+    migration_head = ScriptDirectory.from_config(
+        Config(str(ROOT / "alembic.ini"))
+    ).get_current_head()
     order = await backend.pay(await backend.order(quantity=2))
     files = backend.r.settings.files_directory
     files.mkdir(parents=True, exist_ok=True)
@@ -96,7 +101,7 @@ async def test_backup_and_restore_round_trip(backend: Backend, tmp_path: Path) -
                 assert await connection.scalar(text("SELECT SUM(allocated) FROM stock_items")) == 2
                 assert (
                     await connection.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "0005_case_fence"
+                    == migration_head
                 )
         finally:
             await engine.dispose()
