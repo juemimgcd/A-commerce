@@ -31,8 +31,7 @@ export function commerceExtension(
       return {
         message: {
           customType: "commerce_run",
-          content:
-            "本轮只使用新工具结果判断价格、库存、物流、退款和退货资格。历史消息与摘要用于理解指代，不能证明当前业务状态。",
+          content: `本轮只使用新工具结果判断价格、库存、物流、退款和退货资格。历史消息与摘要用于理解指代，不能证明当前业务状态。当前时间：${new Date().toISOString()}。向用户展示日期时间时使用 Asia/Shanghai（UTC+8），明确时区，不把 UTC 原值当成本地时间。不在未计算时声称即将到期。`,
           display: false,
         },
       };

@@ -4,12 +4,13 @@ import {
   createAgentSession,
   ModelRuntime,
   SettingsManager,
+  type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { Check } from "typebox/value";
 import { BackendClient } from "./backend-client.ts";
 import { config, HarnessError } from "./config.ts";
-import type { RunReply, RunRequest } from "./contracts.ts";
+import { replySchema, type RunReply, type RunRequest } from "./contracts.ts";
 import { runEvents } from "./events.ts";
 import { commerceExtension, type RunMetrics } from "./extensions.ts";
 import { commerceResources, guideTool } from "./resources.ts";
@@ -91,7 +92,30 @@ export async function createSupportRuntime() {
         const cached = await store.prepare();
         if (cached) return cached;
         const manager = await store.manager();
-        const tools = [...commerceTools(client), guideTool];
+        let finalReply: Pick<RunReply, "text" | "product_ids"> | undefined;
+        const finalSchema = Type.Pick(replySchema, ["text", "product_ids"]);
+        const tools = [
+          ...commerceTools(client),
+          guideTool,
+          {
+            name: "commerce_respond",
+            label: "提交最终回复和选中的商品",
+            description:
+              "结束本轮咨询。text 为给用户的完整回复，product_ids 只列最终介绍的本轮已查商品，无商品时传空数组。",
+            parameters: finalSchema,
+            executionMode: "sequential",
+            async execute(_id, params) {
+              if (!Check(finalSchema, params))
+                throw new Error("最终回复格式不正确。");
+              finalReply = params;
+              return {
+                content: [{ type: "text", text: "回复已提交。" }],
+                details: {},
+                terminate: true,
+              };
+            },
+          } satisfies ToolDefinition,
+        ];
         const metrics: RunMetrics = {
           turns: 0,
           tools: 0,
@@ -152,6 +176,8 @@ export async function createSupportRuntime() {
           void session.abort();
         };
         signal.addEventListener("abort", cancel, { once: true });
+        const started = performance.now();
+        let completed = false;
         try {
           let extensionFailed = false;
           await session.bindExtensions({
@@ -179,6 +205,22 @@ export async function createSupportRuntime() {
           signal.throwIfAborted();
           await session.prompt(request.message);
           signal.throwIfAborted();
+          const last = session.messages.at(-1);
+          if (
+            !finalReply &&
+            !extensionFailed &&
+            !metrics.limited &&
+            metrics.turns < config.maxTurns &&
+            last?.role === "assistant" &&
+            last.stopReason === "stop"
+          ) {
+            // Format once without re-querying; native hooks still enforce all budgets.
+            session.setActiveToolsByName(["commerce_respond"]);
+            await session.prompt(
+              "请把刚才的答案通过 commerce_respond 提交，text 保留完整回复，product_ids 只选择本轮成功查到且答案中介绍的商品；无商品则为空数组。不要再查询。",
+            );
+            signal.throwIfAborted();
+          }
           if (extensionFailed)
             throw new HarnessError(
               metrics.limited
@@ -186,18 +228,18 @@ export async function createSupportRuntime() {
                 : "SUPPORT_EXTENSION_FAILED",
             );
           await client.authorize();
-          const last = session.messages.at(-1);
-          if (last?.role !== "assistant" || last.stopReason !== "stop")
+          if (!finalReply)
             throw new HarnessError(
               metrics.limited
                 ? "SUPPORT_BUDGET_EXHAUSTED"
                 : "SUPPORT_INCOMPLETE",
             );
-          const text = session.getLastAssistantText()?.trim();
+          const text = finalReply.text.trim();
           if (!text || text.length > 12000)
             throw new HarnessError("SUPPORT_INCOMPLETE");
           const reply: RunReply = {
             text,
+            product_ids: finalReply.product_ids,
             session_id: session.sessionId,
             outcome: metrics.limited ? "limited" : "answered",
             input_tokens: metrics.input,
@@ -214,8 +256,27 @@ export async function createSupportRuntime() {
             text: undefined,
           });
           await store.finish(manager, reply);
+          completed = true;
           return reply;
         } finally {
+          console.log(
+            JSON.stringify({
+              event: "support_run",
+              run_id: request.run_id,
+              provider,
+              model: modelId,
+              completed,
+              duration_ms: Math.round(performance.now() - started),
+              turns: metrics.turns,
+              tools: client.trace,
+              usage: {
+                input: metrics.input,
+                output: metrics.output,
+                totalTokens: metrics.tokens,
+                cost: metrics.cost,
+              },
+            }),
+          );
           signal.removeEventListener("abort", cancel);
           unsubscribe();
           session.dispose();

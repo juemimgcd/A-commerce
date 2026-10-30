@@ -148,6 +148,7 @@ SupportTool = Annotated[
 
 class AdapterReply(Schema):
     text: str = Field(min_length=1, max_length=12000)
+    product_ids: list[UUID] = Field(max_length=20)
     session_id: UUID
     outcome: Literal["answered", "limited"]
     input_tokens: int = Field(ge=0)
