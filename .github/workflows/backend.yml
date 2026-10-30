@@ -68,6 +68,19 @@ jobs:
         run: uv run --no-sync python scripts/test_backend.py -q -W error::ResourceWarning
       - name: PostgreSQL, RabbitMQ, Sentinel failover and full deployment validation
         run: uv run --no-sync python scripts/validate_deployment.py --ha
+      - name: Preserve failed validation diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: validation-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            var/validation/**/services.log
+            var/validation/**/result.json
+            var/validation/**/*junit.xml
+            var/validation/**/sentinel.json
+            var/validation/**/ha.json
 
   container:
     needs: [check, regression]

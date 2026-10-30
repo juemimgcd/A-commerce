@@ -4,10 +4,18 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from pydantic import BaseModel, Field, SecretStr, model_validator
-from redis.asyncio import Redis
+from redis.asyncio import BlockingConnectionPool, Redis
 from redis.asyncio.retry import Retry
-from redis.asyncio.sentinel import Sentinel
+from redis.asyncio.sentinel import Sentinel, SentinelConnectionPool
 from redis.backoff import NoBackoff
+
+
+class SentinelBlockingConnectionPool(SentinelConnectionPool, BlockingConnectionPool):
+    """保留 Sentinel 发现/切主，用有界等待吸收短时连接占用峰值。
+
+    redis-py 6.4 的 BlockingConnectionPool 在池锁外检查连接，避免一次
+    建连或 Sentinel 发现阻塞其他可用连接的获取；无可用连接最多等待 50ms。
+    """
 
 
 class RedisSentinelSettings(BaseModel):
@@ -67,6 +75,8 @@ async def redis_client(
         )
         client = manager.master_for(
             sentinel.rate_master if rate else sentinel.cache_master,
+            connection_pool_class=SentinelBlockingConnectionPool,
+            timeout=0.05,
             password=(
                 sentinel.rate_password if rate else sentinel.cache_password
             ).get_secret_value(),
@@ -77,13 +87,16 @@ async def redis_client(
             retry=Retry(NoBackoff(), 0),
         )
     else:
-        client = Redis.from_url(
-            url.get_secret_value(),
-            max_connections=max_connections,
-            socket_connect_timeout=timeout,
-            socket_timeout=timeout,
-            decode_responses=True,
-            retry=Retry(NoBackoff(), 0),
+        client = Redis.from_pool(
+            BlockingConnectionPool.from_url(
+                url.get_secret_value(),
+                max_connections=max_connections,
+                timeout=0.05,
+                socket_connect_timeout=timeout,
+                socket_timeout=timeout,
+                decode_responses=True,
+                retry=Retry(NoBackoff(), 0),
+            )
         )
     try:
         yield client

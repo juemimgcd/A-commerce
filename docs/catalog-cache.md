@@ -1,6 +1,8 @@
 # 商品目录逻辑过期
 
-列表首页（无搜索、游标、品牌、属性和价格筛选）与商品详情使用此缓存。筛选、搜索、游标分页、分类、私有查询不在缓存覆盖范围内。报价、下单和库存事务始终读取数据库事实。
+列表首页（无搜索、游标、品牌、属性和价格筛选）与商品详情使用逻辑过期缓存。搜索、筛选和游标分页使用参数完整的独立查询缓存，默认保留 15–20 秒，无额外旧值窗口；分类字典与私有查询不进入缓存。报价、下单和库存事务始终读取数据库事实。
+
+公开列表和详情还可复用已校验的 JSON 响应，默认 1 秒、最大 5 秒，并保留入口限流与 Redis 版本确认。详细边界、配置和发压工具见 [商品浏览优化与压测工具](catalog-performance.md)。
 
 ## 请求行为
 
@@ -32,6 +34,9 @@
 ## 配置与观测
 
 - `COMMERCE_CACHE_SECONDS=30`：基础新鲜期，另加 0–5 秒抖动。
+- `COMMERCE_CACHE_QUERY_SECONDS=15`：查询缓存新鲜期，另加 0–5 秒抖动，无额外旧值窗口。
+- `COMMERCE_CACHE_RESPONSE_SECONDS=1`：公开 JSON 响应复用，最大 5 秒，0 关闭；不超过底层截止时间并预留提前刷新机会。
+- `COMMERCE_REDIS_CONNECTIONS=50`：每进程每组 Redis 连接上限，池满最多等待 50ms。
 - `COMMERCE_CACHE_STALE_SECONDS=120`：逻辑过期后的最大旧值窗口。
 - `COMMERCE_CACHE_ORIGIN_CONCURRENCY=4`：每进程冷回源和后台刷新的共享并发预算。
 - `commerce_catalog_cache_total{outcome=...}`：`hit`、`stale`、`miss`、`coalesced`、`refreshed`、`refresh_busy`、`refresh_failed`、`lease_lost`、`publish_failed`、`origin_timeout`、`invalid`、`unavailable`、`busy`。

@@ -13,7 +13,8 @@ from a_commerce.traffic import Limit, enforce
 bearer = HTTPBearer(auto_error=False)
 
 
-def get_resources(request: Request) -> Resources:
+async def get_resources(request: Request) -> Resources:
+    # 仅访问进程内对象；同步依赖会让每个请求无谓地往返线程池。
     result: Resources = request.app.state.resources
     return result
 
@@ -67,6 +68,8 @@ async def sensitive_limit(request: Request, r: R) -> None:
 
 
 async def entry_limit(request: Request, r: R) -> None:
+    if getattr(request.state, "catalog_entry_limited", False):
+        return
     # 网关先做本地粗限流，这里补上跨 API 实例共享的 IP 额度，并在鉴权查库之前执行。
     host = request.client.host if request.client else "unknown"
     await enforce(

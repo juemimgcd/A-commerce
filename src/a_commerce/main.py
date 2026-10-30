@@ -2,11 +2,9 @@
 
 import asyncio
 import os
-import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from uuid import uuid4
 
 import httpx
 import structlog
@@ -16,8 +14,6 @@ from fastapi.responses import JSONResponse, Response
 from prometheus_client import (
     CONTENT_TYPE_LATEST,
     CollectorRegistry,
-    Counter,
-    Histogram,
     generate_latest,
     multiprocess,
 )
@@ -26,30 +22,30 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.exc import TimeoutError as PoolTimeout
 from starlette.exceptions import HTTPException
-from starlette.middleware.base import RequestResponseEndpoint
 
 from a_commerce import __version__
+from a_commerce.cache.response import CatalogResponseCacheMiddleware
 from a_commerce.conf.resources import resources
 from a_commerce.conf.settings import Settings
 from a_commerce.dependencies import entry_limit
 from a_commerce.errors import CommerceError
 from a_commerce.observability.background import BACKGROUND_METRIC_NAMES, MetricSnapshot, collect
 from a_commerce.observability.body_limit import BodyLimitMiddleware
+from a_commerce.observability.http import HTTPObservabilityMiddleware
 from a_commerce.observability.runtime import RuntimeMetrics, pool_metrics
 from a_commerce.routers import admin, callbacks, customer, operations, storefront, support
 
-REQUESTS = Counter("commerce_http_requests_total", "HTTP 请求数", ["method", "route", "status"])
-LATENCY = Histogram("commerce_http_seconds", "HTTP 响应耗时", ["method", "route"])
 log = structlog.get_logger()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     structlog.configure(
+        logger_factory=structlog.WriteLoggerFactory(),
         processors=[
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.processors.JSONRenderer(),
-        ]
+        ],
     )
 
     @asynccontextmanager
@@ -60,6 +56,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="A-commerce 单店电商后端", version=__version__, lifespan=lifespan)
     app.add_middleware(BodyLimitMiddleware)
+    app.add_middleware(CatalogResponseCacheMiddleware)
+    app.add_middleware(HTTPObservabilityMiddleware)
     # 回调部署拥有独立进程与连接池，且不挂载买家/管理员路由；流量无法串入另一组。
     if settings.api_role in {"all", "public"}:
         for router in (
@@ -119,32 +117,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(httpx.HTTPError)
     async def provider_error(request: Request, exc: Exception) -> JSONResponse:
         return failure(request, 503, "PROVIDER_UNAVAILABLE", "提供方暂不可用，请查询结果。", True)
-
-    @app.middleware("http")
-    async def observe(request: Request, call_next: RequestResponseEndpoint) -> Response:
-        request.state.request_id = str(uuid4())
-        started = time.perf_counter()
-        try:
-            response = await call_next(request)
-        except Exception as exc:
-            log.error(
-                "request_failed", request_id=request.state.request_id, error_type=type(exc).__name__
-            )
-            response = failure(request, 500, "INTERNAL_ERROR", "服务内部错误，请保留请求编号。")
-        route = getattr(request.scope.get("route"), "path", "unmatched")
-        elapsed = time.perf_counter() - started
-        REQUESTS.labels(request.method, route, str(response.status_code)).inc()
-        LATENCY.labels(request.method, route).observe(elapsed)
-        response.headers["X-Request-ID"] = request.state.request_id
-        response.headers["Cache-Control"] = "no-store"
-        log.info(
-            "http_request",
-            request_id=request.state.request_id,
-            route=route,
-            status=response.status_code,
-            duration=round(elapsed, 4),
-        )
-        return response
 
     @app.get("/health/live", tags=["运维"])
     async def live() -> dict[str, str]:

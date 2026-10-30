@@ -7,7 +7,7 @@ from collections.abc import Awaitable
 from dataclasses import dataclass
 
 from prometheus_client import Counter
-from redis.exceptions import RedisError
+from redis.exceptions import NoScriptError, RedisError
 
 from a_commerce.conf.resources import Resources
 from a_commerce.conf.traffic import Quota
@@ -53,6 +53,7 @@ for i, key in ipairs(KEYS) do
 end
 return {1, 0, 0}
 """
+TOKEN_BUCKET_SHA = hashlib.sha1(TOKEN_BUCKET.encode(), usedforsecurity=False).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -75,8 +76,13 @@ async def enforce(r: Resources, limits: list[Limit], *, fail_open: bool = False)
     try:
         # 包含连接建立、连接池与重试的总预算；不在 API 内排队等待令牌。
         async with asyncio.timeout(0.35):
-            pending = r.rate_redis.eval(TOKEN_BUCKET, len(keys), *keys, *arguments)
-            result = await pending if isinstance(pending, Awaitable) else pending
+            try:
+                pending = r.rate_redis.evalsha(TOKEN_BUCKET_SHA, len(keys), *keys, *arguments)
+                result = await pending if isinstance(pending, Awaitable) else pending
+            except NoScriptError:
+                # 仅 NOSCRIPT 可重发：服务器没有执行扣减。连接/超时错误仍不重试。
+                pending = r.rate_redis.eval(TOKEN_BUCKET, len(keys), *keys, *arguments)
+                result = await pending if isinstance(pending, Awaitable) else pending
     except (RedisError, TimeoutError) as exc:
         for policy in {item.policy for item in limits}:
             DECISIONS.labels(
