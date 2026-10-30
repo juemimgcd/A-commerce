@@ -5,6 +5,8 @@
 
 基于 FastAPI 的单店电商系统，包含 React / TypeScript 商城与商家工作台，覆盖交易、履约、售后和运营能力，以 1 万并发在线用户为容量验收目标。后端验收后再接入基于 pi 的 Personal Agent。
 
+2026-10-30：已接入基于 pi 的客服、导购和显式偏好记忆，并完成一轮本地真实模型联调。当前支持受限查询和偏好候选，交易提交仍由用户在业务页面确认；M7 的 grant/action 与事件跟进仍待实现。环境、验证场景、修复和证据见 [客服与记忆验收记录](docs/support-acceptance-2026-10-30.md)。下文早期“pi 延后”的描述针对完整交易 Agent。
+
 前端已完成 F0–F4 的本机实现与核心流程联调：真实目录、幂等购买、模拟支付、履约、部分退货及运营管理。入口与启动命令见 [前端 README](frontend/README.md)，实际证据和发布边界见 [前端实施记录](docs/frontend-implementation.md)。正式商家资料、真实支付和生产容量仍需独立验收。
 
 **当前状态：后端已完成交易链路，并补入对账、事件恢复和运营维护能力。** 已有定期资金核对/差异复核、订单快照/事件归档、媒体对象清理、员工管理、筛选和登录审计；新增维护 worker、持久心跳、告警规则及 CI 配置。启动方式、实际验证结果与发布缺口见 [后端实施记录](docs/backend-implementation.md)，故障处理见 [运维手册](docs/backend-operations.md)。尚未完成 1 万在线用户压测、真实支付沙箱与生产部署验收，pi 延后到 M7。
@@ -36,7 +38,8 @@
                            ├── cache → Redis cache
                            └── outbox → relay → RabbitMQ → aio-pika 异步 worker
 
-M7 后续：pi / TypeScript → 受限 HTTP 工具 → 同一套 services
+客服已接入：pi / TypeScript → 受限 HTTP 工具 → 同一套 services
+M7 后续：grant / action → 独立确认 → 交易执行与恢复
 ```
 
 一份 Python 代码，按 API、worker、relay/scheduler 进程部署。services 控制事务，CRUD 不单独 commit；pi 不直接访问数据库。具体目录和事务边界见架构文档。
@@ -56,7 +59,7 @@ RabbitMQ 通过 AMQP 0-9-1 传递持久化消息；aio-pika 负责异步发布�
 | 集成 | HTTPX，媒体/邮件通过可选适配器 |
 | 观测 | structlog、Prometheus client、可选 OpenTelemetry |
 | 容量工具 | 网关、Prometheus/Grafana、k6；部署版本在实施时固定 |
-| 后续 Agent | pi + 独立 TypeScript 适配器、grant/action；M7 实施 |
+| Agent | pi + 独立 TypeScript 客服适配器已接入；grant/action 待 M7 实施 |
 
 直接依赖精确版本与用途见 [依赖说明](docs/dependencies.md)，传递依赖见 `uv.lock`。当前安装、静态检查及本机业务验证范围见实施记录，不能据此推断生产容量。
 
@@ -88,6 +91,6 @@ M1–M3 达到 v0.1 内部联调目标；M1–M6 及 v1.0 功能、正确性和�
 
 ## 当前文件边界
 
-已新增 `src/a_commerce`、`frontend`、`alembic`、`scripts`、`deploy`、`tests`。业务规则、事务边界、重试与恢复均有中文注释；接口定义可通过 `/docs` 查看。代码托管于 [juemimgcd/A-commerce](https://github.com/juemimgcd/A-commerce)，CI 通过后为新版本自动创建 tag、GHCR 镜像和 Release 部署包。自动化业务回归已接入 CI 配置，未修改 pi 仓库；pi 适配器待 M7 实施。服务器 CD 默认关闭，启用条件见发布指南。
+已新增 `src/a_commerce`、`frontend`、`alembic`、`scripts`、`deploy`、`tests`、`pi-adapter`。业务规则、事务边界、重试与恢复均有中文注释；接口定义可通过 `/docs` 查看。代码托管于 [juemimgcd/A-commerce](https://github.com/juemimgcd/A-commerce)，CI 通过后为新版本自动创建 tag、GHCR 镜像和 Release 部署包。自动化业务回归已接入 CI 配置，未修改 pi 仓库；客服适配器已实现，完整交易 Agent 待 M7 实施。服务器 CD 默认关闭，启用条件见发布指南。
 
 当前多实例启动以 [部署与限流说明](docs/traffic-deployment.md) 为准；早期单实例联调过程见 [启动与验证记录](docs/backend-implementation.md)。原本地联调凭证保存在忽略目录 `var/local-accounts.json`，不要提交到版本库。
