@@ -15,3 +15,4 @@ class QuoteItem(TypedDict):
     attributes: NotRequired[dict[str, str]]
     flash_sale_id: NotRequired[str]
     flash_sale_version: NotRequired[int]
+    merchant_promotion_version: NotRequired[int]

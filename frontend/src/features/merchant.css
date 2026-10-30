@@ -13,6 +13,9 @@
 }
 
 @media (max-width: 767px) {
+  .merchant-page .two-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .merchant-tabs {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

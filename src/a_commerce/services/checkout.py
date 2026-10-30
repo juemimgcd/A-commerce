@@ -2,7 +2,7 @@
 
 import hashlib
 from datetime import timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,6 +29,7 @@ from a_commerce.models.entities import (
 )
 from a_commerce.models.snapshots import QuoteItem
 from a_commerce.schemas.api import OrderIn, OrderOut, QuoteIn, QuoteOut
+from a_commerce.services import merchant_promotions
 from a_commerce.services.events import record_event
 from a_commerce.services.flash_sales import lock_sales, validate_sale
 from a_commerce.services.identity import Principal, authorize
@@ -119,9 +120,16 @@ async def create_quote(r: Resources, p: Principal, data: QuoteIn) -> QuoteOut:
             )
             if line.flash_sale_id:
                 sale = validate_sale(sales.get(line.flash_sale_id), sku, line.quantity)
+                if sale.merchant_promotion_id and not r.settings.merchant_promotions_enabled:
+                    raise CommerceError("PROMOTIONS_DISABLED", "商家活动暂不接受新报价。", 409)
+                promotion = await merchant_promotions.qualify(
+                    session, sale, sku, p.id, line.quantity, product.shop_id
+                )
                 items[-1]["price_fen"] = sale.price_fen
                 items[-1]["flash_sale_id"] = str(sale.id)
                 items[-1]["flash_sale_version"] = sale.version
+                if promotion:
+                    items[-1]["merchant_promotion_version"] = promotion.version
                 expires_at = min(expires_at, sale.ends_at)
         subtotal = sum(int(i["price_fen"]) * int(i["quantity"]) for i in items)
         shipping, rule_version = await shipping_price(
@@ -285,8 +293,16 @@ async def place_order(r: Resources, p: Principal, data: OrderIn, key: str) -> Or
             quantity = int(line["quantity"])
             sale_id = UUID(line["flash_sale_id"]) if line.get("flash_sale_id") else None
             price = sku.price_fen
+            promotion = None
             if sale_id:
                 sale = validate_sale(sales.get(sale_id), sku, quantity)
+                if sale.merchant_promotion_id and not r.settings.merchant_promotions_enabled:
+                    raise CommerceError("PROMOTIONS_DISABLED", "商家活动暂不接受新订单。", 409)
+                promotion = await merchant_promotions.qualify(
+                    session, sale, sku, p.id, quantity, quote.shop_id
+                )
+                if promotion and promotion.version != line.get("merchant_promotion_version"):
+                    raise CommerceError("QUOTE_STALE", "商家活动版本变化，请重新报价。", 409)
                 if sale.version != line.get("flash_sale_version"):
                     raise CommerceError("QUOTE_STALE", "秒杀配置已变化，请重新报价并确认。")
                 price = sale.price_fen
@@ -301,9 +317,11 @@ async def place_order(r: Resources, p: Principal, data: OrderIn, key: str) -> Or
             if stock.on_hand - stock.reserved - stock.allocated < quantity:
                 raise CommerceError("OUT_OF_STOCK", "可售库存不足，整张订单未创建。")
             stock.reserved += quantity
+            item_id = uuid4()
             session.add_all(
                 [
                     OrderItem(
+                        id=item_id,
                         order_id=order.id,
                         sku_id=sku_id,
                         product_id=product.id,
@@ -316,6 +334,7 @@ async def place_order(r: Resources, p: Principal, data: OrderIn, key: str) -> Or
                         quantity=quantity,
                         price_fen=price,
                         flash_sale_id=sale_id,
+                        merchant_promotion_version=promotion.version if promotion else None,
                     ),
                     StockMovement(
                         reference=f"reserve:{order.id}:{sku_id}",
@@ -327,6 +346,13 @@ async def place_order(r: Resources, p: Principal, data: OrderIn, key: str) -> Or
                     ),
                 ]
             )
+            if promotion:
+                # 明细与活动占用同一事务提交，任何失败都回滚库存、额度及预算。
+                await session.flush()
+                item = await session.get(OrderItem, item_id)
+                if item is None:
+                    raise missing()
+                await merchant_promotions.claim(session, promotion, item)
         intent = PaymentIntent(order_id=order.id)
         session.add(intent)
         await session.flush()

@@ -24,6 +24,13 @@ import {
 } from "@/components/ui";
 import { useVisible } from "@/components/providers";
 import "./merchant.css";
+import {
+  MerchantCustomers,
+  MerchantDiagnostics,
+  MerchantInventory,
+  MerchantPromotions,
+  OrderExpenses,
+} from "./merchant-ops";
 
 type Schema = components["schemas"];
 type Shop = Schema["ShopOut"];
@@ -108,7 +115,9 @@ function Merchant() {
 }
 
 function MerchantWorkspace({ shop }: { shop: Shop }) {
-  const [tab, setTab] = useState("products");
+  const search = useSearchParams();
+  const router = useRouter();
+  const tab = search.get("tab") ?? "products";
   return (
     <div className="stack">
       <nav className="merchant-tabs" aria-label="店铺功能">
@@ -117,6 +126,10 @@ function MerchantWorkspace({ shop }: { shop: Shop }) {
           ["orders", "订单履约"],
           ["returns", "售后处理"],
           ["reports", "经营报表"],
+          ["diagnostics", "经营诊断"],
+          ["inventory", "库存与补货"],
+          ["customers", "客户分群"],
+          ["promotions", "活动方案"],
           ["agent", "经营助手"],
           ["settings", "店铺资料"],
         ].map(([key, name]) => (
@@ -124,7 +137,7 @@ function MerchantWorkspace({ shop }: { shop: Shop }) {
             key={key}
             variant={tab === key ? "primary" : "secondary"}
             aria-current={tab === key ? "page" : undefined}
-            onClick={() => setTab(key)}
+            onClick={() => router.replace(`/merchant?shop=${shop.id}&tab=${key}`)}
           >
             {name}
           </Button>
@@ -134,6 +147,10 @@ function MerchantWorkspace({ shop }: { shop: Shop }) {
       {tab === "orders" && <MerchantOrders shop={shop} />}
       {tab === "returns" && <MerchantReturns shop={shop} />}
       {tab === "reports" && <MerchantReports shop={shop} />}
+      {tab === "diagnostics" && <MerchantDiagnostics shop={shop} />}
+      {tab === "inventory" && <MerchantInventory shop={shop} />}
+      {tab === "customers" && <MerchantCustomers shop={shop} />}
+      {tab === "promotions" && <MerchantPromotions shop={shop} />}
       {tab === "agent" && <MerchantAgent shop={shop} />}
       {tab === "settings" && <ShopForm shop={shop} />}
     </div>
@@ -711,6 +728,7 @@ function MerchantOrder({
         已退款 <Money value={order.refunded_fen} /> · 处理中{" "}
         <Money value={order.refund_reserved_fen} />
       </p>
+      <OrderExpenses shop={shop} orderId={order.id} />
       {order.status === "paid" && order.fulfillment_status !== "delivered" && (
         <form
           className="stack"
@@ -1110,7 +1128,7 @@ function MerchantAgent({ shop }: { shop: Shop }) {
   return (
     <section className="stack">
       <h2>本店经营助手</h2>
-      <p className="muted">只查询当前店铺的经营数据。切换店铺会进入独立会话。</p>
+      <p className="muted">分析本店经营数据并生成内部草稿。活动发布和实际入库需在业务页面确认。</p>
       <div className="toolbar">
         <Field label="经营会话">
           <select
@@ -1151,6 +1169,15 @@ function MerchantAgent({ shop }: { shop: Shop }) {
                     ? "正在查询本店数据…"
                     : `本轮未完成（${row.error_code}），可重新提问。`}
               </p>
+              {row.links.length > 0 && (
+                <div className="actions">
+                  {row.links.map((link) => (
+                    <Link className="button secondary" key={link.href} href={link.href}>
+                      {link.title}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </article>
           ))}
         </div>

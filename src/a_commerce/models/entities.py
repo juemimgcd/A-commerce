@@ -114,6 +114,9 @@ class FlashSale(Record):
         Index("ix_flash_sales_active_ends", "active", "ends_at"),
     )
     sku_id: Mapped[UUID] = mapped_column(ForeignKey("skus.id"), index=True)
+    merchant_promotion_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("merchant_promotions.id"), unique=True
+    )
     price_fen: Mapped[int] = mapped_column(BigInteger)
     stock: Mapped[int]
     # 未取消订单占用的额度（含待付款和已成交），取消时与实物库存一起释放。
@@ -226,6 +229,7 @@ class OrderItem(Record):
     order_id: Mapped[UUID] = mapped_column(ForeignKey("orders.id"), index=True)
     sku_id: Mapped[UUID] = mapped_column(ForeignKey("skus.id"))
     flash_sale_id: Mapped[UUID | None] = mapped_column(ForeignKey("flash_sales.id"), index=True)
+    merchant_promotion_version: Mapped[int | None]
     title: Mapped[str] = mapped_column(String(200))
     attributes: Mapped[dict[str, str]] = mapped_column(JSONB)
     quantity: Mapped[int]

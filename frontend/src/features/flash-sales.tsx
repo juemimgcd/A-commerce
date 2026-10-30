@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowClockwise, ArrowRight, Plus } from "@phosphor-icons/react";
-import { useVisible } from "@/components/providers";
+import { useAuth, useVisible } from "@/components/providers";
 import {
   AuthGate,
   Button,
@@ -35,12 +35,15 @@ const statusNames: Record<FlashSale["status"], string> = {
 };
 
 export function FlashSalesScreen() {
+  const auth = useAuth();
   const visible = useVisible();
   const query = useInfiniteQuery({
-    queryKey: ["flash-sales"],
+    queryKey: auth.customer ? ["customer", "flash-sales", auth.customer.id] : ["flash-sales"],
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) =>
-      api<FlashSalePage>(`customer/flash-sales${queryString({ cursor: pageParam, limit: 20 })}`),
+      api<FlashSalePage>(
+        `customer/${auth.customer ? "eligible-flash-sales" : "flash-sales"}${queryString({ cursor: pageParam, limit: 20 })}`,
+      ),
     getNextPageParam: (page) => page.next_cursor ?? undefined,
     refetchInterval: visible ? 15000 : false,
     staleTime: 0,

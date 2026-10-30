@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     )
 
     environment: Literal["development", "production"] = "development"
+    merchant_promotions_enabled: bool = False
     # 使用可直接跨进程传递的 JSON 文本，API 与 worker 读取同一份商家配置。
     shop_config: str = "{}"
     database_url: SecretStr

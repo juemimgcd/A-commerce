@@ -5,6 +5,10 @@ export const runtime = "nodejs";
 const uuid = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const rules: Record<string, RegExp[]> = {
   GET: [
+    new RegExp(
+      `^merchant/shops/${uuid}/(operations/capabilities|diagnostics|diagnostics/${uuid}(/evidence)?|inventory-risks|restock-tasks(/${uuid})?|segments|promotions(/${uuid}(/(validation|report))?)?|orders/${uuid}/expenses)$`,
+    ),
+    new RegExp(`^customer/eligible-flash-sales(/${uuid})?$`),
     /^(merchant|admin)\/shops$/,
     new RegExp(`^admin/shops/${uuid}/(products|reports)$`),
     new RegExp(`^merchant/shops/${uuid}/(products|orders|returns|reports|conversations)$`),
@@ -26,6 +30,10 @@ const rules: Record<string, RegExp[]> = {
     ),
   ],
   POST: [
+    new RegExp(
+      `^merchant/shops/${uuid}/(diagnostics|restock-tasks|restock-tasks/${uuid}/(confirm|receive|start|cancel)|segments(/preview|/${uuid}/deactivate)?|repeat-purchase|promotions(/simulate|/${uuid}/(publish|stop))?|orders/${uuid}/expenses)$`,
+    ),
+    new RegExp(`^admin/shops/${uuid}/promotions/${uuid}/stop$`),
     /^admin\/shops$/,
     new RegExp(
       `^merchant/shops/${uuid}/(products|conversations|products/${uuid}/(skus|media)|inventory/${uuid}/adjust|orders/${uuid}/(pick|ship|deliver)|returns/${uuid}/(approve|reject|receive|inspection)|conversations/${uuid}/messages|runs/${uuid}/cancel)$`,
@@ -44,6 +52,7 @@ const rules: Record<string, RegExp[]> = {
     ),
   ],
   PUT: [
+    new RegExp(`^merchant/shops/${uuid}/restock-rules/${uuid}$`),
     new RegExp(`^admin/shops/${uuid}/skus/${uuid}/cost$`),
     new RegExp(
       `^(admin/shops/${uuid}(/status)?|merchant/shops/${uuid}(/products/${uuid}(/skus/${uuid})?|/skus/${uuid}/cost)?)$`,

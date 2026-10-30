@@ -422,8 +422,8 @@ function Checkout({ flashSaleId }: { flashSaleId?: string }) {
     enabled: !flashSaleId,
   });
   const sale = useQuery({
-    queryKey: ["flash-sale", flashSaleId],
-    queryFn: () => api<FlashSale>(`customer/flash-sales/${flashSaleId}`),
+    queryKey: ["customer", "flash-sale", auth.customer?.id, flashSaleId],
+    queryFn: () => api<FlashSale>(`customer/eligible-flash-sales/${flashSaleId}`),
     enabled: !!flashSaleId,
     staleTime: 0,
     refetchInterval: visible ? 15000 : false,
