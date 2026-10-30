@@ -138,6 +138,7 @@ class CartOut(Schema):
 class QuoteLine(Schema):
     sku_id: UUID
     quantity: Quantity
+    flash_sale_id: UUID | None = None
 
 
 class QuoteIn(Schema):
@@ -173,6 +174,7 @@ class OrderLineOut(Schema):
     price_fen: int
     quantity: int
     returned_quantity: int
+    flash_sale_id: UUID | None = None
 
 
 class OrderOut(Schema):

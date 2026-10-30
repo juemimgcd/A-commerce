@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { Loading } from "@/components/ui";
 import { AuthScreen } from "@/features/auth";
 import { CatalogScreen, HomeScreen, ProductScreen } from "@/features/catalog";
+import { AdminFlashSalesScreen, FlashSalesScreen } from "@/features/flash-sales";
 import {
   CartScreen,
   CheckoutScreen,
@@ -36,6 +37,7 @@ type Props = {
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const titles: Record<string, string> = {
   products: "全部商品",
+  "flash-sales": "限时秒杀",
   compare: "规格比较",
   login: "登录",
   register: "创建账户",
@@ -141,8 +143,12 @@ export default async function Page(props: Props) {
       />
     );
   else if (area === "cart" && route.length === 1) content = <CartScreen />;
-  else if (area === "checkout" && route.length === 1) content = <CheckoutScreen />;
-  else if (area === "compare" && route.length === 1) content = <CompareScreen />;
+  else if (area === "flash-sales" && route.length === 1) content = <FlashSalesScreen />;
+  else if (area === "checkout" && route.length === 1) {
+    const saleId = search.flash_sale;
+    if (saleId !== undefined && (typeof saleId !== "string" || !uuid.test(saleId))) notFound();
+    content = <CheckoutScreen key={saleId ?? "cart"} flashSaleId={saleId} />;
+  } else if (area === "compare" && route.length === 1) content = <CompareScreen />;
   else if (area === "help" && route.length === 1) content = <HelpScreen />;
   else if (area === "support" && route.length === 1) content = <SupportScreen />;
   else if (area === "account" && id === "memory" && route.length === 2) content = <MemoryScreen />;
@@ -176,6 +182,7 @@ export default async function Page(props: Props) {
     else if (id === "account" && route.length === 2) content = <AccountScreen admin />;
     else if (id === "customer-insights" && route.length === 2) content = <CustomerInsightsScreen />;
     else if (id === "products" && route.length === 2) content = <AdminProductsScreen />;
+    else if (id === "flash-sales" && route.length === 2) content = <AdminFlashSalesScreen />;
     else if (id === "products" && route.length === 3 && (child === "new" || uuid.test(child)))
       content = <AdminProductScreen id={child} />;
     else if (id === "inventory" && route.length <= 3 && (!child || uuid.test(child)))

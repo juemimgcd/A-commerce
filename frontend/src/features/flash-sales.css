@@ -1,0 +1,62 @@
+.flash-sale-list {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.flash-sale-row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) 176px;
+  align-items: center;
+  gap: 24px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.flash-sale-row .product-image {
+  aspect-ratio: 1;
+}
+.flash-sale-row .status {
+  width: fit-content;
+}
+.flash-sale-prices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 16px;
+}
+.flash-sale-prices > span {
+  color: var(--primary-contrast);
+}
+.flash-sale-prices > span .money {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+}
+.flash-sale-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+@media (max-width: 1023px) {
+  .flash-sale-row {
+    grid-template-columns: 120px minmax(0, 1fr);
+    gap: 16px;
+  }
+  .flash-sale-action {
+    grid-column: 2;
+  }
+}
+@media (max-width: 599px) {
+  .flash-sale-row {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
+  }
+  .flash-sale-row > a {
+    width: min(100%, 240px);
+    justify-self: center;
+  }
+  .flash-sale-action {
+    grid-column: 1;
+  }
+}

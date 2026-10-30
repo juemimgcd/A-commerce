@@ -28,6 +28,7 @@ from a_commerce.models.entities import (
 from a_commerce.models.snapshots import QuoteItem
 from a_commerce.schemas.api import OrderIn, OrderOut, QuoteIn, QuoteOut
 from a_commerce.services.events import record_event
+from a_commerce.services.flash_sales import lock_sales, validate_sale
 from a_commerce.services.identity import Principal, authorize
 from a_commerce.services.operations import enqueue
 from a_commerce.services.pricing import shipping_price
@@ -83,6 +84,8 @@ async def create_quote(r: Resources, p: Principal, data: QuoteIn) -> QuoteOut:
         if address is None:
             raise missing()
         catalog = await lock_catalog(session, [item.sku_id for item in data.items])
+        sales = await lock_sales(session, [i.flash_sale_id for i in data.items if i.flash_sale_id])
+        expires_at = now() + timedelta(seconds=r.settings.quote_seconds)
         items: list[QuoteItem] = []
         for line in sorted(data.items, key=lambda item: item.sku_id):
             sku, product = catalog[line.sku_id]
@@ -97,6 +100,12 @@ async def create_quote(r: Resources, p: Principal, data: QuoteIn) -> QuoteOut:
                     "attributes": sku.attributes,
                 }
             )
+            if line.flash_sale_id:
+                sale = validate_sale(sales.get(line.flash_sale_id), sku.id, line.quantity)
+                items[-1]["price_fen"] = sale.price_fen
+                items[-1]["flash_sale_id"] = str(sale.id)
+                items[-1]["flash_sale_version"] = sale.version
+                expires_at = min(expires_at, sale.ends_at)
         subtotal = sum(int(i["price_fen"]) * int(i["quantity"]) for i in items)
         shipping, rule_version = await shipping_price(
             session, address.region, subtotal, r.settings.shipping_fen
@@ -118,7 +127,7 @@ async def create_quote(r: Resources, p: Principal, data: QuoteIn) -> QuoteOut:
                 "return_days": r.settings.return_days,
                 "return_shipping": "non_refundable",
             },
-            expires_at=now() + timedelta(seconds=r.settings.quote_seconds),
+            expires_at=expires_at,
         )
         session.add(quote)
         await session.flush()
@@ -212,6 +221,9 @@ async def place_order(r: Resources, p: Principal, data: OrderIn, key: str) -> Or
                 .with_for_update()
             )
         }
+        sales = await lock_sales(
+            session, [UUID(i["flash_sale_id"]) for i in quote.items if i.get("flash_sale_id")]
+        )
         order = Order(
             user_id=p.id,
             quote_id=quote.id,
@@ -227,10 +239,18 @@ async def place_order(r: Resources, p: Principal, data: OrderIn, key: str) -> Or
             sku_id = UUID(str(line["sku_id"]))
             sku, product = catalog[sku_id]
             quantity = int(line["quantity"])
+            sale_id = UUID(line["flash_sale_id"]) if line.get("flash_sale_id") else None
+            price = sku.price_fen
+            if sale_id:
+                sale = validate_sale(sales.get(sale_id), sku_id, quantity)
+                if sale.version != line.get("flash_sale_version"):
+                    raise CommerceError("QUOTE_STALE", "秒杀配置已变化，请重新报价并确认。")
+                price = sale.price_fen
+                sale.claimed += quantity
             if (
                 sku.version != line["sku_version"]
                 or product.version != line["product_version"]
-                or sku.price_fen != line["price_fen"]
+                or price != line["price_fen"]
             ):
                 raise CommerceError("QUOTE_STALE", "商品或价格已变化，请重新报价并确认。")
             stock = stocks[sku_id]
@@ -245,7 +265,8 @@ async def place_order(r: Resources, p: Principal, data: OrderIn, key: str) -> Or
                         title=product.title,
                         attributes=sku.attributes,
                         quantity=quantity,
-                        price_fen=sku.price_fen,
+                        price_fen=price,
+                        flash_sale_id=sale_id,
                     ),
                     StockMovement(
                         reference=f"reserve:{order.id}:{sku_id}",

@@ -12,6 +12,7 @@ import { useStored } from "@/lib/storage";
 import type {
   Address,
   CartItem,
+  FlashSale,
   History,
   Order,
   OrderPage,
@@ -382,15 +383,16 @@ function uncertain(error: unknown) {
     error.code === "INVALID_RESPONSE"
   );
 }
-export function CheckoutScreen() {
+export function CheckoutScreen({ flashSaleId }: { flashSaleId?: string }) {
   return (
     <AuthGate>
-      <Checkout />
+      <Checkout flashSaleId={flashSaleId} />
     </AuthGate>
   );
 }
-function Checkout() {
+function Checkout({ flashSaleId }: { flashSaleId?: string }) {
   const auth = useAuth();
+  const visible = useVisible();
   const search = useSearchParams();
   const router = useRouter();
   const client = useQueryClient();
@@ -407,6 +409,14 @@ function Checkout() {
   const cart = useQuery({
     queryKey: ["customer", "cart"],
     queryFn: () => api<CartItem[]>("customer/cart"),
+    enabled: !flashSaleId,
+  });
+  const sale = useQuery({
+    queryKey: ["flash-sale", flashSaleId],
+    queryFn: () => api<FlashSale>(`customer/flash-sales/${flashSaleId}`),
+    enabled: !!flashSaleId,
+    staleTime: 0,
+    refetchInterval: visible ? 15000 : false,
   });
   const restoredQuote = useQuery({
     queryKey: ["customer", "quote", pending?.quote_id],
@@ -415,7 +425,11 @@ function Checkout() {
     enabled: !!pending,
   });
   const chosen = search.getAll("sku");
-  const items = cart.data?.filter((item) => !chosen.length || chosen.includes(item.sku_id)) ?? [];
+  const items = flashSaleId
+    ? sale.data
+      ? [{ ...sale.data, quantity: 1 }]
+      : []
+    : (cart.data?.filter((item) => !chosen.length || chosen.includes(item.sku_id)) ?? []);
   const selectedAddress = addressId || addresses.data?.[0]?.id || "";
   const displayedQuote = pending
     ? (restoredQuote.data ?? (quote?.id === pending.quote_id ? quote : undefined))
@@ -426,7 +440,11 @@ function Checkout() {
         method: "POST",
         json: {
           address_id: selectedAddress,
-          items: items.map((item) => ({ sku_id: item.sku_id, quantity: item.quantity })),
+          items: items.map((item) => ({
+            sku_id: item.sku_id,
+            quantity: item.quantity,
+            flash_sale_id: flashSaleId,
+          })),
         },
         validate: quoteSchema.parse,
       }),
@@ -462,7 +480,14 @@ function Checkout() {
       } catch (error) {
         if (
           (!pending && !uncertain(error)) ||
-          (error instanceof ApiError && ["QUOTE_EXPIRED", "QUOTE_STALE"].includes(error.code))
+          (error instanceof ApiError &&
+            [
+              "QUOTE_EXPIRED",
+              "QUOTE_STALE",
+              "FLASH_SALE_UNAVAILABLE",
+              "FLASH_SALE_INACTIVE",
+              "FLASH_SALE_SOLD_OUT",
+            ].includes(error.code))
         )
           savePending();
         throw error;
@@ -490,12 +515,17 @@ function Checkout() {
       <PageTitle
         eyebrow="结算 · 核对后下单"
         title={pending ? "确认订单提交结果" : "确认这次购买"}
-        description="所有应付金额与配送规则，均以服务端报价为准。"
+        description={
+          flashSaleId
+            ? "秒杀每次购买 1 件，报价不占库存。活动结束或售罄后无法创建新订单。"
+            : "所有应付金额与配送规则，均以服务端报价为准。"
+        }
       />
       <ErrorNotice
         error={
           addresses.error ||
           cart.error ||
+          sale.error ||
           createQuote.error ||
           submit.error ||
           recover.error ||
@@ -503,6 +533,12 @@ function Checkout() {
         }
       />
       {message && <Notice>{message}</Notice>}
+      {flashSaleId && !pending && sale.data && sale.data.status !== "active" && (
+        <Notice>
+          当前活动尚未开始、已结束或已售罄。
+          <Link href="/flash-sales">返回秒杀列表选择其他商品</Link>
+        </Notice>
+      )}
       {pending && (
         <Notice>
           <div>
@@ -520,7 +556,7 @@ function Checkout() {
           </div>
         </Notice>
       )}
-      {!pending && (addresses.isPending || cart.isPending) ? (
+      {!pending && (addresses.isPending || (flashSaleId ? sale.isPending : cart.isPending)) ? (
         <Loading />
       ) : (
         <div className="checkout-layout">
@@ -615,6 +651,9 @@ function Checkout() {
                           "QUOTE_EXPIRED",
                           "OUT_OF_STOCK",
                           "PRODUCT_UNAVAILABLE",
+                          "FLASH_SALE_UNAVAILABLE",
+                          "FLASH_SALE_INACTIVE",
+                          "FLASH_SALE_SOLD_OUT",
                         ].includes(submit.error.code)
                       }
                       onClick={() => submit.mutate()}
@@ -649,7 +688,12 @@ function Checkout() {
                   <Button
                     className="full"
                     busy={createQuote.isPending}
-                    disabled={!selectedAddress || !items.length || items.length > 50}
+                    disabled={
+                      !selectedAddress ||
+                      !items.length ||
+                      items.length > 50 ||
+                      (!!flashSaleId && sale.data?.status !== "active")
+                    }
                     onClick={() => createQuote.mutate()}
                   >
                     获取报价 <ArrowRight />
@@ -658,7 +702,9 @@ function Checkout() {
               )
             )}
             <p className="muted">
-              下单成功后购物车保留原商品，便于继续购买。可返回购物车手动移除已成交行。
+              {flashSaleId
+                ? "秒杀直接结算，不影响购物车中的商品。"
+                : "下单成功后购物车保留原商品，便于继续购买。可返回购物车手动移除已成交行。"}
             </p>
           </aside>
         </div>
@@ -697,6 +743,7 @@ export function LineItems({
     quantity: number;
     price_fen: number;
     attributes?: Record<string, string>;
+    flash_sale_id?: string | null;
   }[];
 }) {
   return (
@@ -705,6 +752,7 @@ export function LineItems({
         <div className="order-line" key={i}>
           <div>
             <strong>{item.title}</strong>
+            {item.flash_sale_id && <span className="status neutral">秒杀</span>}
             <p className="muted">{attributes(item.attributes) || "标准规格"}</p>
             <small>
               <Money value={item.price_fen} /> × {item.quantity}
