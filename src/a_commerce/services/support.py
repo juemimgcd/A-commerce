@@ -15,12 +15,15 @@ from a_commerce.conf.resources import Resources
 from a_commerce.conf.support import support_config
 from a_commerce.errors import CommerceError, missing
 from a_commerce.models.base import now
+from a_commerce.models.entities import User
 from a_commerce.models.support import SupportConversation, SupportPreference, SupportRun
 from a_commerce.schemas.support import (
     AdapterReply,
     ConversationIn,
     ConversationOut,
     FeedbackIn,
+    MerchantListTool,
+    MerchantReportTool,
     MessageIn,
     OrderTool,
     ProductTool,
@@ -38,52 +41,70 @@ from a_commerce.services import (
     customer_memory,
     identity,
     management,
+    merchant,
+    merchant_reporting,
     orders,
     shipping,
     storefront,
 )
 from a_commerce.services.identity import Principal, authorize
+from a_commerce.services.shop_access import audit, scope
 
 log = structlog.get_logger()
 # 与 pi-adapter 的请求体上限一致，按实际发送的 UTF-8 JSON 字节数裁剪。
 ADAPTER_REQUEST_MAX_BYTES = 64 * 1024
 
 
-async def conversations(r: Resources, p: Principal) -> list[ConversationOut]:
+async def conversations(
+    r: Resources, p: Principal, *, shop_id: UUID | None = None
+) -> list[ConversationOut]:
     async with r.sessions() as session:
-        await authorize(session, p)
+        if shop_id is not None:
+            await scope(session, p, shop_id, "audit")
+        else:
+            await authorize(session, p)
         rows = await session.scalars(
             select(SupportConversation)
-            .where(SupportConversation.user_id == p.id)
+            .where(SupportConversation.user_id == p.id, SupportConversation.shop_id == shop_id)
             .order_by(SupportConversation.created_at.desc(), SupportConversation.id)
             .limit(50)
         )
         return [ConversationOut.model_validate(row) for row in rows]
 
 
-async def create_conversation(r: Resources, p: Principal, data: ConversationIn) -> ConversationOut:
+async def create_conversation(
+    r: Resources, p: Principal, data: ConversationIn, *, shop_id: UUID | None = None
+) -> ConversationOut:
     async with r.sessions.begin() as session:
-        await customer_memory.lock_preferences(session, p)
+        if shop_id is not None:
+            await scope(session, p, shop_id, "audit")
+            await session.scalar(select(User.id).where(User.id == p.id).with_for_update())
+        else:
+            await customer_memory.lock_preferences(session, p)
         count = await session.scalar(
             select(func.count())
             .select_from(SupportConversation)
-            .where(SupportConversation.user_id == p.id)
+            .where(SupportConversation.user_id == p.id, SupportConversation.shop_id == shop_id)
         )
         if count is not None and count >= 50:
             raise CommerceError(
                 "CONVERSATION_LIMIT", "最多保留 50 个客服会话，请继续已有会话。", 409
             )
-        row = SupportConversation(user_id=p.id, title=data.title)
+        row = SupportConversation(user_id=p.id, shop_id=shop_id, title=data.title)
         session.add(row)
         await session.flush()
         return ConversationOut.model_validate(row)
 
 
-async def history(r: Resources, p: Principal, conversation_id: UUID) -> list[SupportRunOut]:
+async def history(
+    r: Resources, p: Principal, conversation_id: UUID, *, shop_id: UUID | None = None
+) -> list[SupportRunOut]:
     async with r.sessions.begin() as session:
         await authorize(session, p)
+        if shop_id is not None:
+            await scope(session, p, shop_id, "audit")
         conversation = await session.get(SupportConversation, conversation_id)
-        if conversation is None or conversation.user_id != p.id:
+        if conversation is None or conversation.user_id != p.id or conversation.shop_id != shop_id:
             raise missing()
         # 进程重启可能没有机会写失败状态；持久化截止时间保证页面不会无限等待。
         await session.execute(
@@ -107,13 +128,22 @@ async def history(r: Resources, p: Principal, conversation_id: UUID) -> list[Sup
 
 
 async def start_run(
-    r: Resources, p: Principal, conversation_id: UUID, data: MessageIn
+    r: Resources,
+    p: Principal,
+    conversation_id: UUID,
+    data: MessageIn,
+    *,
+    shop_id: UUID | None = None,
 ) -> tuple[SupportRunOut, str | None]:
     config = support_config()
     async with r.sessions.begin() as session:
-        preference = await customer_memory.lock_preferences(session, p)
+        preference = await customer_memory.lock_preferences(session, p) if shop_id is None else None
+        if shop_id is not None:
+            await session.scalar(select(User.id).where(User.id == p.id).with_for_update())
+        if shop_id is not None:
+            await scope(session, p, shop_id, "audit")
         conversation = await session.get(SupportConversation, conversation_id)
-        if conversation is None or conversation.user_id != p.id:
+        if conversation is None or conversation.user_id != p.id or conversation.shop_id != shop_id:
             raise missing()
         previous = await session.scalar(
             select(SupportRun).where(
@@ -159,7 +189,8 @@ async def start_run(
             user_text=data.text,
             token_hash=hashlib.sha256(raw.encode()).hexdigest(),
             expires_at=now() + timedelta(seconds=config.timeout_seconds + 10),
-            memory_generation=preference.generation,
+            shop_id=shop_id,
+            memory_generation=preference.generation if preference else 1,
         )
         session.add(run)
         if conversation.title == "新的客服咨询":
@@ -179,6 +210,8 @@ async def execute_run(r: Resources, p: Principal, run_id: UUID, token: str) -> N
                 run = await session.get(SupportRun, run_id)
                 if run is None or run.status != "running":
                     return
+                if run.shop_id is not None:
+                    await scope(session, p, run.shop_id, "audit")
                 previous = list(
                     await session.scalars(
                         select(SupportRun)
@@ -197,6 +230,7 @@ async def execute_run(r: Resources, p: Principal, run_id: UUID, token: str) -> N
                     for row in reversed(previous)
                 ]
                 payload = {
+                    "shop_id": str(run.shop_id) if run.shop_id else None,
                     "run_id": str(run.id),
                     "user_id": str(run.user_id),
                     "conversation_id": str(run.conversation_id),
@@ -246,17 +280,30 @@ async def execute_run(r: Resources, p: Principal, run_id: UUID, token: str) -> N
                     response.raise_for_status()
                 reply = AdapterReply.model_validate_json(response.content)
             async with r.sessions.begin() as session:
-                preference = await customer_memory.lock_preferences(session, p)
+                # 保持账号 → 会话 → 运行的锁顺序，避免和工具结束/取消形成反向锁。
+                await session.scalar(select(User.id).where(User.id == p.id).with_for_update())
+                await authorize(session, p)
                 run = await session.scalar(
                     select(SupportRun).where(SupportRun.id == run_id).with_for_update()
                 )
                 if run is None or run.status != "running":
                     return
-                if run.memory_generation != preference.generation:
+                if run.shop_id is not None:
+                    await scope(session, p, run.shop_id, "audit")
+                preference = (
+                    await customer_memory.lock_preferences(session, p)
+                    if run.shop_id is None
+                    else None
+                )
+                if preference is not None and run.memory_generation != preference.generation:
                     raise CommerceError("MEMORY_CHANGED", "偏好设置已变化，请重新提问。", 409)
                 if run.expires_at <= now():
                     raise CommerceError("SUPPORT_INTERRUPTED", "本轮咨询已超时。", 409)
                 # 标题和入口只来自本轮成功查询；模型不能自造 URL 或选择历史商品。
+                if run.shop_id is not None and reply.product_ids:
+                    raise CommerceError(
+                        "SUPPORT_INVALID_PRODUCTS", "商家回复不能生成买家商品推荐。", 502
+                    )
                 available = {link["href"]: link for link in run.links}
                 selected = list(dict.fromkeys(f"/products/{pid}" for pid in reply.product_ids))
                 if any(href not in available for href in selected):
@@ -283,7 +330,11 @@ async def execute_run(r: Resources, p: Principal, run_id: UUID, token: str) -> N
             select(SupportPreference.generation).where(SupportPreference.user_id == p.id)
         )
         interrupted = await session.get(SupportRun, run_id)
-        if interrupted is not None and generation != interrupted.memory_generation:
+        if (
+            interrupted is not None
+            and interrupted.shop_id is None
+            and generation != interrupted.memory_generation
+        ):
             error_code = "MEMORY_CHANGED"
         await session.execute(
             update(SupportRun)
@@ -328,7 +379,9 @@ async def tool_principal(
         preference = await session.scalar(
             select(SupportPreference).where(SupportPreference.user_id == p.id)
         )
-        if preference is None or preference.generation != run.memory_generation:
+        if run.shop_id is not None:
+            await scope(session, p, run.shop_id, "audit")
+        elif preference is None or preference.generation != run.memory_generation:
             raise CommerceError("MEMORY_CHANGED", "偏好设置已变化，请重新提问。", 409)
         if count_tool and run.tool_calls >= 12:
             raise CommerceError("SUPPORT_TOOL_LIMIT", "本轮查询已达上限，请根据已有结果回复。", 429)
@@ -344,6 +397,7 @@ async def run_state(r: Resources, run_id: UUID, token: str) -> dict[str, object]
         if run is None:
             raise missing()
         return {
+            "shop_id": str(run.shop_id) if run.shop_id else None,
             "status": run.status,
             "memory_generation": run.memory_generation,
             "user_id": str(p.id),
@@ -365,7 +419,9 @@ async def record_event(r: Resources, run_id: UUID, token: str, data: SupportEven
             run.runtime = {**run.runtime, "events": [*events, data.model_dump(mode="json")]}
 
 
-async def cancel_run(r: Resources, p: Principal, run_id: UUID) -> None:
+async def cancel_run(
+    r: Resources, p: Principal, run_id: UUID, *, shop_id: UUID | None = None
+) -> None:
     async with r.sessions.begin() as session:
         await customer_memory.lock_preferences(session, p)
         run = await session.scalar(
@@ -373,8 +429,10 @@ async def cancel_run(r: Resources, p: Principal, run_id: UUID) -> None:
             .where(SupportRun.id == run_id, SupportRun.user_id == p.id)
             .with_for_update()
         )
-        if run is None:
+        if run is None or run.shop_id != shop_id:
             raise missing()
+        if shop_id is not None:
+            await scope(session, p, shop_id, "audit")
         if run.status != "running":
             return
         run.status = "failed"
@@ -396,6 +454,15 @@ async def cancel_run(r: Resources, p: Principal, run_id: UUID) -> None:
 
 async def call_tool(r: Resources, run_id: UUID, token: str, data: SupportTool) -> dict[str, object]:
     p = await tool_principal(r, run_id, token)
+    async with r.sessions() as session:
+        bound = await session.get(SupportRun, run_id)
+        if bound is None:
+            raise missing()
+        shop_id = bound.shop_id
+    if shop_id is not None:
+        return await call_merchant_tool(r, p, run_id, shop_id, data)
+    if isinstance(data, (MerchantReportTool, MerchantListTool)):
+        raise missing()
     result: dict[str, object]
     links: list[dict[str, str]] = []
     feature = ""
@@ -582,3 +649,70 @@ async def call_tool(r: Resources, run_id: UUID, token: str, data: SupportTool) -
         # 保留整轮查询结果，最终完成时按选择核验；十二次业务工具限制总量。
         run.links = list(merged.values())
     return {"data": result, "links": links}
+
+
+async def call_merchant_tool(
+    r: Resources, p: Principal, run_id: UUID, shop_id: UUID, data: SupportTool
+) -> dict[str, object]:
+    result: dict[str, object]
+    if isinstance(data, MerchantReportTool):
+        row = await merchant_reporting.report(r, p, shop_id, data.start, data.end, data.product_id)
+        result = row.model_dump(mode="json", exclude={"products"})
+        if data.tool == "get_shop_customer_statistics":
+            result = {
+                "customers": row.customers.model_dump(mode="json"),
+                "as_of": row.as_of.isoformat(),
+                "basis_version": row.basis_version,
+            }
+    elif isinstance(data, MerchantListTool):
+        if data.tool == "list_shop_orders":
+            page = await orders.list_orders(r, p, data.cursor, data.limit, shop_id=shop_id)
+            result = {
+                "items": [
+                    row.model_dump(mode="json", exclude={"address_snapshot", "policy"})
+                    for row in page.items
+                ],
+                "next_cursor": page.next_cursor,
+            }
+        else:
+            try:
+                cursor = UUID(data.cursor) if data.cursor else None
+            except ValueError as exc:
+                raise CommerceError("INVALID_CURSOR", "无效分页游标。", 422) from exc
+            products_page = await merchant.products(r, p, shop_id, cursor, min(data.limit, 6))
+            result = {
+                "items": [
+                    {
+                        "id": item.product.id,
+                        "title": item.product.title,
+                        "active": item.product.active,
+                        "skus": [sku.model_dump(mode="json") for sku in item.product.skus[:10]],
+                        "costs": [cost.model_dump(mode="json") for cost in item.costs[:10]],
+                        "more_skus": len(item.product.skus) > 10,
+                    }
+                    for item in products_page.items
+                ],
+                "next_cursor": str(products_page.next_cursor)
+                if products_page.next_cursor
+                else None,
+            }
+    else:
+        raise CommerceError("MERCHANT_READ_ONLY", "商家 Agent 只允许注册的本店查询工具。", 403)
+    async with r.sessions.begin() as session:
+        await scope(session, p, shop_id, "audit")
+        run = await session.scalar(
+            select(SupportRun).where(SupportRun.id == run_id).with_for_update()
+        )
+        if (
+            run is None
+            or run.shop_id != shop_id
+            or run.status != "running"
+            or run.expires_at <= now()
+        ):
+            raise CommerceError("SUPPORT_EXPIRED", "商家运行已结束。", 401)
+        session.add(audit(p, shop_id, "merchant.agent_tool", run_id, f"tool={data.tool}"))
+        run.links = [{"title": "打开本店工作台", "href": f"/merchant?shop={shop_id}"}]
+    return {
+        "data": result,
+        "links": [{"title": "打开本店工作台", "href": f"/merchant?shop={shop_id}"}],
+    }

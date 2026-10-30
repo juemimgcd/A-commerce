@@ -15,6 +15,7 @@ from a_commerce.models.entities import (
     SKU,
     Address,
     Audit,
+    Category,
     IdempotencyRecord,
     Operation,
     Order,
@@ -22,6 +23,7 @@ from a_commerce.models.entities import (
     PaymentIntent,
     Product,
     Quote,
+    Shop,
     Stock,
     StockMovement,
 )
@@ -38,6 +40,20 @@ from a_commerce.traffic import Limit, enforce
 async def lock_catalog(session: AsyncSession, ids: list[UUID]) -> dict[UUID, tuple[SKU, Product]]:
     # 商品 → SKU → 库存，且每层都按 UUID 排序。商品编辑和下单使用相同协议，
     # 因而下单检查完价格之后，管理员不能在订单提交前穿插修改该价格。
+    shop_ids = list(
+        (
+            await session.scalars(
+                select(Product.shop_id).join(SKU).where(SKU.id.in_(ids)).distinct()
+            )
+        ).all()
+    )
+    if len(shop_ids) != 1:
+        raise CommerceError("CROSS_SHOP_CHECKOUT", "请按店铺分别结算。", 422)
+    shop = await session.scalar(
+        select(Shop).where(Shop.id == shop_ids[0]).with_for_update(read=True)
+    )
+    if shop is None or shop.status != "active":
+        raise CommerceError("SHOP_UNAVAILABLE", "店铺暂停经营，不能创建新交易。", 409)
     product_ids = select(SKU.product_id).where(SKU.id.in_(ids))
     products = list(
         (
@@ -96,12 +112,13 @@ async def create_quote(r: Resources, p: Principal, data: QuoteIn) -> QuoteOut:
                     "product_version": product.version,
                     "quantity": line.quantity,
                     "price_fen": sku.price_fen,
+                    "regular_price_fen": sku.price_fen,
                     "title": product.title,
                     "attributes": sku.attributes,
                 }
             )
             if line.flash_sale_id:
-                sale = validate_sale(sales.get(line.flash_sale_id), sku.id, line.quantity)
+                sale = validate_sale(sales.get(line.flash_sale_id), sku, line.quantity)
                 items[-1]["price_fen"] = sale.price_fen
                 items[-1]["flash_sale_id"] = str(sale.id)
                 items[-1]["flash_sale_version"] = sale.version
@@ -110,7 +127,14 @@ async def create_quote(r: Resources, p: Principal, data: QuoteIn) -> QuoteOut:
         shipping, rule_version = await shipping_price(
             session, address.region, subtotal, r.settings.shipping_fen
         )
+        shop = (
+            await session.scalars(
+                select(Shop).where(Shop.id == next(iter(catalog.values()))[1].shop_id)
+            )
+        ).one()
         quote = Quote(
+            shop_id=shop.id,
+            shop_version=shop.version,
             user_id=p.id,
             address_id=address.id,
             address_version=address.version,
@@ -207,6 +231,19 @@ async def place_order(r: Resources, p: Principal, data: OrderIn, key: str) -> Or
         if address is None or address.version != quote.address_version:
             raise CommerceError("QUOTE_STALE", "收货地址已变化，请重新报价。")
         catalog = await lock_catalog(session, [UUID(str(i["sku_id"])) for i in quote.items])
+        shop = (await session.scalars(select(Shop).where(Shop.id == quote.shop_id))).one()
+        if shop.version != quote.shop_version or any(
+            product.shop_id != quote.shop_id for _, product in catalog.values()
+        ):
+            raise CommerceError("QUOTE_STALE", "店铺或规则已变化，请重新报价。", 409)
+        category_names = {
+            c.id: c.name
+            for c in await session.scalars(
+                select(Category).where(
+                    Category.id.in_([product.category_id for _, product in catalog.values()])
+                )
+            )
+        }
         shipping, rule_version = await shipping_price(
             session, address.region, quote.total_fen - quote.shipping_fen, r.settings.shipping_fen
         )
@@ -225,6 +262,13 @@ async def place_order(r: Resources, p: Principal, data: OrderIn, key: str) -> Or
             session, [UUID(i["flash_sale_id"]) for i in quote.items if i.get("flash_sale_id")]
         )
         order = Order(
+            shop_id=quote.shop_id,
+            return_address=shop.return_address
+            or (
+                r.settings.shop.return_address.model_dump()
+                if r.settings.shop.return_address
+                else None
+            ),
             user_id=p.id,
             quote_id=quote.id,
             total_fen=quote.total_fen,
@@ -242,7 +286,7 @@ async def place_order(r: Resources, p: Principal, data: OrderIn, key: str) -> Or
             sale_id = UUID(line["flash_sale_id"]) if line.get("flash_sale_id") else None
             price = sku.price_fen
             if sale_id:
-                sale = validate_sale(sales.get(sale_id), sku_id, quantity)
+                sale = validate_sale(sales.get(sale_id), sku, quantity)
                 if sale.version != line.get("flash_sale_version"):
                     raise CommerceError("QUOTE_STALE", "秒杀配置已变化，请重新报价并确认。")
                 price = sale.price_fen
@@ -262,6 +306,11 @@ async def place_order(r: Resources, p: Principal, data: OrderIn, key: str) -> Or
                     OrderItem(
                         order_id=order.id,
                         sku_id=sku_id,
+                        product_id=product.id,
+                        category_id=product.category_id,
+                        category_name=category_names[product.category_id],
+                        regular_price_fen=line.get("regular_price_fen"),
+                        cost_fen=sku.cost_fen,
                         title=product.title,
                         attributes=sku.attributes,
                         quantity=quantity,
@@ -293,6 +342,8 @@ async def place_order(r: Resources, p: Principal, data: OrderIn, key: str) -> Or
                 ),
                 Audit(
                     actor_id=p.id,
+                    actor_kind=p.kind,
+                    shop_id=order.shop_id,
                     action="order.create",
                     resource_id=order.id,
                     detail="报价确认下单",

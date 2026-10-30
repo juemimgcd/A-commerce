@@ -8,7 +8,7 @@ import { Type } from "typebox";
 import { Check } from "typebox/value";
 import { join } from "node:path";
 import { config } from "./config.ts";
-import { systemPrompt } from "./prompt.ts";
+import { merchantPrompt, systemPrompt } from "./prompt.ts";
 
 const guides = {
   shopping:
@@ -47,6 +47,7 @@ export const guideTool: ToolDefinition = {
 export async function commerceResources(
   settings: SettingsManager,
   extension: ExtensionFactory,
+  merchant = false,
 ) {
   const loader = new DefaultResourceLoader({
     cwd: config.stateDir,
@@ -57,7 +58,7 @@ export async function commerceResources(
     noPromptTemplates: true,
     noThemes: true,
     noContextFiles: true,
-    systemPrompt,
+    systemPrompt: merchant ? merchantPrompt : systemPrompt,
     extensionFactories: [extension],
   });
   await loader.reload();

@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import insert
 from a_commerce.conf.resources import Resources
 from a_commerce.crud.queries import product_covers, product_outputs
 from a_commerce.errors import CommerceError, missing
-from a_commerce.models.entities import SKU, CartItem, Favorite, Product, Stock, User
+from a_commerce.models.entities import SKU, CartItem, Favorite, Product, Shop, Stock, User
 from a_commerce.schemas.api import CartOut, ProductPage
 from a_commerce.services.identity import Principal, authorize
 
@@ -31,15 +31,23 @@ async def get_cart(r: Resources, p: Principal) -> list[CartOut]:
                 )
             ).all()
         )
+        shops = {
+            s.id: s
+            for s in await session.scalars(
+                select(Shop).where(Shop.id.in_([product.shop_id for _, _, product, _ in rows]))
+            )
+        }
         covers = await product_covers(session, [product.id for _, _, product, _ in rows])
         return [
             CartOut(
+                shop_id=product.shop_id,
+                shop_name=shops[product.shop_id].name,
                 sku_id=sku.id,
                 quantity=item.quantity,
                 title=product.title,
                 price_fen=sku.price_fen,
                 available=stock.on_hand - stock.reserved - stock.allocated,
-                active=sku.active and product.active,
+                active=sku.active and product.active and shops[product.shop_id].status == "active",
                 product_id=product.id,
                 attributes=sku.attributes,
                 cover_media_id=covers.get(product.id),

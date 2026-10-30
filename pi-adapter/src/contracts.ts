@@ -4,6 +4,7 @@ export const uuid = Type.String({ format: "uuid" });
 export const requestSchema = Type.Object(
   {
     run_id: uuid,
+    shop_id: Type.Optional(Type.Union([uuid, Type.Null()])),
     user_id: uuid,
     conversation_id: uuid,
     memory_generation: Type.Integer({ minimum: 1 }),

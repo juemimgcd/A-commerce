@@ -1,0 +1,27 @@
+.merchant-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.merchant-tabs .button {
+  flex: 0 1 auto;
+}
+
+.merchant-page .toolbar .button {
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .merchant-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .merchant-page .toolbar > .field,
+  .merchant-page .toolbar > .button {
+    flex: 0 0 100%;
+    max-width: none;
+    min-width: 0;
+  }
+}

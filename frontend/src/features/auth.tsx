@@ -32,7 +32,7 @@ export function AuthScreen({
           ? "设置新密码"
           : "找回密码"
         : admin
-          ? "登录商家工作台"
+          ? "登录平台管理"
           : "欢迎回来";
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -66,7 +66,7 @@ export function AuthScreen({
   return (
     <div className="auth-layout">
       <div className="auth-story">
-        <span className="eyebrow">{admin ? "商家工作台" : "A-COMMERCE"}</span>
+        <span className="eyebrow">{admin ? "平台管理" : "A-COMMERCE"}</span>
         <h2>
           {admin ? (
             <>

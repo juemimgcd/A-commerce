@@ -96,6 +96,7 @@ class SKUOut(SKUIn):
 
 
 class ProductOut(ProductIn):
+    shop_id: UUID
     id: UUID
     version: int
     skus: list[SKUOut]
@@ -124,6 +125,8 @@ class CartIn(Schema):
 
 
 class CartOut(Schema):
+    shop_id: UUID
+    shop_name: str
     sku_id: UUID
     quantity: int
     title: str
@@ -153,6 +156,7 @@ class QuoteIn(Schema):
 
 
 class QuoteOut(Schema):
+    shop_id: UUID
     id: UUID
     items: list[QuoteItem]
     address_snapshot: dict[str, str]
@@ -178,6 +182,7 @@ class OrderLineOut(Schema):
 
 
 class OrderOut(Schema):
+    shop_id: UUID
     id: UUID
     status: str
     payment_status: str

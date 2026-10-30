@@ -24,6 +24,7 @@ class SupportConversation(Record):
     __tablename__ = "support_conversations"
     __table_args__ = (Index("ix_support_conversations_user_created", "user_id", "created_at"),)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    shop_id: Mapped[UUID | None] = mapped_column(ForeignKey("shops.id"), index=True)
     title: Mapped[str] = mapped_column(String(80))
 
 
@@ -36,6 +37,7 @@ class SupportRun(Record):
         CheckConstraint("tool_calls >= 0 AND tool_calls <= 12", name="tool_budget"),
     )
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    shop_id: Mapped[UUID | None] = mapped_column(ForeignKey("shops.id"), index=True)
     session_id: Mapped[UUID] = mapped_column(ForeignKey("sessions.id"))
     conversation_id: Mapped[UUID] = mapped_column(ForeignKey("support_conversations.id"))
     request_id: Mapped[UUID]

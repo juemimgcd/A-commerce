@@ -114,7 +114,7 @@ async def login(r: Resources, data: Credentials, *, staff: bool = False) -> Toke
             User | Staff | None,
             await session.scalar(select(model).where(model.email == str(data.email).lower())),
         )
-        digest = account.password_hash if account is not None else DUMMY_HASH
+        digest = account.password_hash if account is not None and account.active else DUMMY_HASH
         account_id = account.id if account else None
     # 密码校验期间不占数据库连接；再次加锁检查密码/账号，防止并发改密后发出旧会话。
     async with asyncio.timeout(5), r.password_slots:

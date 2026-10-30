@@ -263,7 +263,9 @@ function Cart() {
                         {item.title}
                       </Link>
                     </h2>
-                    <p className="muted">{attributes(item.attributes)}</p>
+                    <p className="muted">
+                      {item.shop_name} · {attributes(item.attributes)}
+                    </p>
                     <Money value={item.price_fen} />
                     {!valid && (
                       <p className="error-text">
@@ -330,17 +332,25 @@ function Cart() {
                 <dd>结算时计算</dd>
               </div>
             </dl>
-            <p className="muted">每次最多结算 50 个规格，其余商品可留在购物车。</p>
+            <p className="muted">按店铺分别结算，每家店独立计算运费和付款。每次最多 50 个规格。</p>
             {selected.length > 50 && (
               <Notice>已选 {selected.length} 个规格，请取消部分勾选。</Notice>
             )}
             {selected.length > 0 && selected.length <= 50 && !update.isPending ? (
-              <Link
-                className="button primary full"
-                href={`/checkout?${selected.map((item) => `sku=${item.sku_id}`).join("&")}`}
-              >
-                前往结算 <ArrowRight />
-              </Link>
+              <div className="stack">
+                {[...new Set(selected.map((item) => item.shop_id))].map((shopId) => {
+                  const group = selected.filter((item) => item.shop_id === shopId);
+                  return (
+                    <Link
+                      key={shopId}
+                      className="button primary full"
+                      href={`/checkout?shop=${shopId}&${group.map((item) => `sku=${item.sku_id}`).join("&")}`}
+                    >
+                      结算 {group[0].shop_name} <ArrowRight />
+                    </Link>
+                  );
+                })}
+              </div>
             ) : (
               <Button className="full" disabled>
                 请选择可结算商品
@@ -429,7 +439,11 @@ function Checkout({ flashSaleId }: { flashSaleId?: string }) {
     ? sale.data
       ? [{ ...sale.data, quantity: 1 }]
       : []
-    : (cart.data?.filter((item) => !chosen.length || chosen.includes(item.sku_id)) ?? []);
+    : (cart.data?.filter(
+        (item) =>
+          (!chosen.length || chosen.includes(item.sku_id)) &&
+          (!search.get("shop") || item.shop_id === search.get("shop")),
+      ) ?? []);
   const selectedAddress = addressId || addresses.data?.[0]?.id || "";
   const displayedQuote = pending
     ? (restoredQuote.data ?? (quote?.id === pending.quote_id ? quote : undefined))

@@ -27,6 +27,7 @@ import {
   ShippingScreen,
   StaffScreen,
 } from "@/features/admin-operations";
+import { MerchantScreen, AdminShopsScreen } from "@/features/merchant";
 import { publicData, webOrigin } from "@/lib/server";
 import type { Category, Product, ProductPage } from "@/lib/types";
 
@@ -49,7 +50,8 @@ const titles: Record<string, string> = {
   account: "我的账户",
   help: "购物帮助",
   support: "商城客服",
-  admin: "商家工作台",
+  admin: "平台管理",
+  merchant: "商家工作台",
   policies: "购物政策",
 };
 
@@ -150,6 +152,7 @@ export default async function Page(props: Props) {
     content = <CheckoutScreen key={saleId ?? "cart"} flashSaleId={saleId} />;
   } else if (area === "compare" && route.length === 1) content = <CompareScreen />;
   else if (area === "help" && route.length === 1) content = <HelpScreen />;
+  else if (area === "merchant" && route.length === 1) content = <MerchantScreen />;
   else if (area === "support" && route.length === 1) content = <SupportScreen />;
   else if (area === "account" && id === "memory" && route.length === 2) content = <MemoryScreen />;
   else if (area === "policies" && route.length === 2 && ["privacy", "terms"].includes(id))
@@ -179,6 +182,7 @@ export default async function Page(props: Props) {
   else if (area === "admin") {
     if (route.length === 1) content = <AdminHome />;
     else if (id === "login" && route.length === 2) content = <AuthScreen admin />;
+    else if (id === "shops" && route.length === 2) content = <AdminShopsScreen />;
     else if (id === "account" && route.length === 2) content = <AccountScreen admin />;
     else if (id === "customer-insights" && route.length === 2) content = <CustomerInsightsScreen />;
     else if (id === "products" && route.length === 2) content = <AdminProductsScreen />;

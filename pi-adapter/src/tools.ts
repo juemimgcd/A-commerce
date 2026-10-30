@@ -33,6 +33,24 @@ export function commerceTools(client: BackendClient): ToolDefinition[] {
     };
   }
   const empty = Type.Object({}, { additionalProperties: false });
+  if (client.request.shop_id) {
+    const period = Type.Object({
+      start: Type.String({ format: "date" }),
+      end: Type.String({ format: "date" }),
+      product_id: Type.Optional(uuid),
+    }, { additionalProperties: false });
+    const page = Type.Object({
+      cursor: Type.Optional(Type.String({ maxLength: 200 })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 20 })),
+    }, { additionalProperties: false });
+    return [
+      tool("get_shop_sales_summary", "查询当前店铺期间收款与退款，以及该期间支付订单截至当前的经营表现。结束日期不包含在区间内，最多 366 天。", period),
+      tool("get_product_sales", "按 product_id 查询本店商品销量、退款、成本覆盖与可计算毛利，金额为分。", period),
+      tool("get_shop_customer_statistics", "查询本店聚合购买人数、新老客、收货地区和消费分布，不提供客户联系方式。", period),
+      tool("list_shop_orders", "分页读取本店脱敏订单摘要，不含姓名、电话、地址或买家标识。", page),
+      tool("list_shop_products", "分页读取本店商品、售价、当前成本、成本版本和库存。", page),
+    ];
+  }
   const search = Type.Object(
     {
       q: Type.Optional(Type.String({ maxLength: 80 })),

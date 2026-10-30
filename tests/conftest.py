@@ -38,10 +38,12 @@ from a_commerce.models.entities import (
     PaymentIntent,
     Product,
     Session,
+    Shop,
     Staff,
     Stock,
     User,
 )
+from a_commerce.models.shops import LEGACY_SHOP_ID
 from a_commerce.services.identity import DUMMY_HASH, Principal
 from a_commerce.workers.handlers import handle
 
@@ -300,6 +302,16 @@ async def backend(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncItera
 
         buyer, other, admin = await account(), await account(), await account(staff=True)
         async with r.sessions.begin() as session:
+            # TRUNCATE 同时清除了迁移创建的自营店铺，重建商品默认归属。
+            session.add(
+                Shop(
+                    id=LEGACY_SHOP_ID,
+                    owner_user_id=other.principal.id,
+                    name="测试店铺",
+                    status="active",
+                    updated_at=now(),
+                )
+            )
             category = Category(name="测试分类")
             session.add(category)
             await session.flush()

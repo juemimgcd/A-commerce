@@ -17,6 +17,7 @@ from a_commerce.models.entities import (
     Refund,
     ReturnItem,
     ReturnRequest,
+    Shop,
     Stock,
 )
 from a_commerce.schemas.api import (
@@ -102,14 +103,21 @@ async def product_outputs(session: AsyncSession, products: list[Product]) -> lis
                 available=stock.on_hand - stock.reserved - stock.allocated,
             )
         )
+    shops = {
+        s.id: s
+        for s in await session.scalars(
+            select(Shop).where(Shop.id.in_([p.shop_id for p in products]))
+        )
+    }
     return [
         ProductOut(
             id=p.id,
+            shop_id=p.shop_id,
             category_id=p.category_id,
             title=p.title,
             brand=p.brand,
             description=p.description,
-            active=p.active,
+            active=p.active and p.shop_id in shops and shops[p.shop_id].status == "active",
             version=p.version,
             skus=by_product.get(p.id, []),
             cover_media_id=covers.get(p.id),
@@ -161,6 +169,12 @@ async def return_outputs(
             select(Refund).where(Refund.id.in_([r.refund_id for r in records if r.refund_id]))
         )
     }
+    addresses = {
+        o.id: o.return_address
+        for o in await session.scalars(
+            select(Order).where(Order.id.in_([r.order_id for r in records]))
+        )
+    }
     return [
         ReturnOut.model_validate(
             {
@@ -171,7 +185,7 @@ async def return_outputs(
                 },
                 "items": grouped.get(row.id, []),
                 "refund": refunds.get(row.refund_id) if row.refund_id else None,
-                "return_address": address,
+                "return_address": addresses.get(row.order_id) or address,
             }
         )
         for row in records

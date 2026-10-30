@@ -9,6 +9,7 @@ class QuoteItem(TypedDict):
     product_version: int
     quantity: int
     price_fen: int
+    regular_price_fen: NotRequired[int]
     title: str
     # 已持久化的历史报价可能没有该字段，不能从当前商品回填成交事实。
     attributes: NotRequired[dict[str, str]]

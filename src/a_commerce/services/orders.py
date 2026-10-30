@@ -17,6 +17,7 @@ from a_commerce.services.identity import Principal, authorize
 from a_commerce.services.inventory import move_order_stock
 from a_commerce.services.operations import enqueue
 from a_commerce.services.refunds import reserve_refund
+from a_commerce.services.shop_access import audit, scope
 
 
 async def expire(r: Resources) -> None:
@@ -46,7 +47,7 @@ async def expire(r: Resources) -> None:
 
 
 async def by_request(r: Resources, p: Principal, key: str) -> OrderOut:
-    async with r.sessions() as session:
+    async with r.sessions.begin() as session:
         await authorize(session, p)
         record = await session.scalar(
             select(IdempotencyRecord).where(
@@ -61,12 +62,23 @@ async def by_request(r: Resources, p: Principal, key: str) -> OrderOut:
         return await order_output(session, order)
 
 
-async def get_order(r: Resources, p: Principal, order_id: UUID, *, admin: bool = False) -> OrderOut:
-    async with r.sessions() as session:
-        await authorize(session, p, "fulfillment" if admin else None)
+async def get_order(
+    r: Resources, p: Principal, order_id: UUID, *, admin: bool = False, shop_id: UUID | None = None
+) -> OrderOut:
+    async with r.sessions.begin() as session:
+        if shop_id is not None:
+            await scope(session, p, shop_id, "fulfillment")
+        else:
+            await authorize(session, p, "fulfillment" if admin else None)
         order = await session.get(Order, order_id)
-        if order is None or (not admin and order.user_id != p.id):
+        if (
+            order is None
+            or (shop_id is not None and order.shop_id != shop_id)
+            or (shop_id is None and not admin and order.user_id != p.id)
+        ):
             raise missing()
+        if shop_id is not None:
+            session.add(audit(p, shop_id, "merchant.order_read", order.id, "读取本店履约详情"))
         return await order_output(session, order)
 
 
@@ -79,11 +91,17 @@ async def list_orders(
     admin: bool = False,
     filters: OrderFilter | None = None,
     user_id: UUID | None = None,
+    shop_id: UUID | None = None,
 ) -> OrderPage:
-    async with r.sessions() as session:
-        await authorize(session, p, "fulfillment" if admin else None)
+    async with r.sessions.begin() as session:
+        if shop_id is not None:
+            await scope(session, p, shop_id, "fulfillment")
+        else:
+            await authorize(session, p, "fulfillment" if admin else None)
         query = select(Order)
-        if not admin:
+        if shop_id is not None:
+            query = query.where(Order.shop_id == shop_id)
+        elif not admin:
             query = query.where(Order.user_id == p.id)
         elif user_id:
             query = query.where(Order.user_id == user_id)
@@ -115,6 +133,12 @@ async def list_orders(
             ).all()
         )
         items = await order_outputs(session, rows[:limit])
+        if shop_id is not None:
+            session.add(
+                audit(
+                    p, shop_id, "merchant.orders_read", shop_id, f"读取本店订单 count={len(items)}"
+                )
+            )
         next_cursor = None
         if len(rows) > limit:
             last = rows[limit - 1]
@@ -157,7 +181,7 @@ async def cancel(r: Resources, p: Principal, order_id: UUID, data: CancelIn) -> 
 
 
 async def payment_session(r: Resources, p: Principal, order_id: UUID) -> PaymentOut:
-    async with r.sessions() as session:
+    async with r.sessions.begin() as session:
         await authorize(session, p)
         order = await session.get(Order, order_id)
         if order is None or order.user_id != p.id:

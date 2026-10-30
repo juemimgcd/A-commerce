@@ -17,7 +17,8 @@ from sqlalchemy.engine import make_url
 from a_commerce.conf.resources import resources
 from a_commerce.conf.settings import Settings
 from a_commerce.models.base import now
-from a_commerce.models.entities import SKU, Address, Category, Product, Session, Stock, User
+from a_commerce.models.entities import SKU, Address, Category, Product, Session, Shop, Stock, User
+from a_commerce.models.shops import LEGACY_OWNER_ID
 from a_commerce.services.identity import DUMMY_HASH
 
 
@@ -38,8 +39,29 @@ async def seed(users: int, products: int, destination: Path) -> None:
     with os.fdopen(descriptor, "w") as output:
         async with resources(settings) as r:
             async with r.sessions.begin() as session:
-                if await session.scalar(select(User.id).limit(1)) is not None:
+                if (
+                    await session.scalar(select(User.id).where(User.id != LEGACY_OWNER_ID).limit(1))
+                    is not None
+                    or await session.scalar(select(Product.id).limit(1)) is not None
+                ):
                     raise ValueError("压测库必须为空，不向既有用户库追加数据")
+                owner = User(email="load-store-owner@example.com", password_hash=DUMMY_HASH)
+                session.add(owner)
+                await session.flush()
+                shop = Shop(
+                    owner_user_id=owner.id,
+                    name="负载验证店铺",
+                    status="active",
+                    updated_at=now(),
+                    return_address={
+                        "recipient": "负载验证收件处",
+                        "phone": "12345678",
+                        "region": "测试区域",
+                        "detail": "测试地址",
+                    },
+                )
+                session.add(shop)
+                await session.flush()
                 category_id = uuid4()
                 await session.execute(
                     insert(Category), [{"id": category_id, "name": "负载验证目录"}]
@@ -54,6 +76,7 @@ async def seed(users: int, products: int, destination: Path) -> None:
                             {
                                 "id": product_id,
                                 "category_id": category_id,
+                                "shop_id": shop.id,
                                 "title": f"压测商品 {index}",
                                 "active": True,
                             }

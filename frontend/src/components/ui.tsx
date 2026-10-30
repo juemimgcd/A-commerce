@@ -334,7 +334,7 @@ export function AuthGate({
   if (!profile)
     return (
       <Empty
-        title={scope === "admin" ? "登录商家工作台" : "登录后继续"}
+        title={scope === "admin" ? "登录平台管理" : "登录后继续"}
         action={
           <Link
             className="button primary"

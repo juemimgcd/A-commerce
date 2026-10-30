@@ -151,6 +151,7 @@ export class ConversationStore {
           request.run_id,
           request.user_id,
           request.conversation_id,
+          request.shop_id ?? null,
           request.memory_generation,
           request.previous_run_id,
           request.message,
