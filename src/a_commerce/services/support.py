@@ -256,6 +256,14 @@ async def execute_run(r: Resources, p: Principal, run_id: UUID, token: str) -> N
                     raise CommerceError("MEMORY_CHANGED", "偏好设置已变化，请重新提问。", 409)
                 if run.expires_at <= now():
                     raise CommerceError("SUPPORT_INTERRUPTED", "本轮咨询已超时。", 409)
+                # 标题和入口只来自本轮成功查询；模型不能自造 URL 或选择历史商品。
+                available = {link["href"]: link for link in run.links}
+                selected = list(dict.fromkeys(f"/products/{pid}" for pid in reply.product_ids))
+                if any(href not in available for href in selected):
+                    raise CommerceError("SUPPORT_INVALID_PRODUCTS", "商品入口未通过核验。", 502)
+                run.links = [
+                    link for link in run.links if not link["href"].startswith("/products/")
+                ] + [available[href] for href in selected]
                 run.assistant_text = reply.text
                 run.runtime = {
                     **run.runtime,
@@ -571,5 +579,6 @@ async def call_tool(r: Resources, run_id: UUID, token: str, data: SupportTool) -
             raise CommerceError("MEMORY_CHANGED", "偏好设置已变化，请重新提问。", 409)
         merged = {link["href"]: link for link in run.links}
         merged.update({link["href"]: link for link in links})
-        run.links = list(merged.values())[-20:]
+        # 保留整轮查询结果，最终完成时按选择核验；十二次业务工具限制总量。
+        run.links = list(merged.values())
     return {"data": result, "links": links}

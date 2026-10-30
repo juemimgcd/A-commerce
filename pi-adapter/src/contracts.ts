@@ -27,6 +27,7 @@ export type RunRequest = Static<typeof requestSchema>;
 
 export const replySchema = Type.Object({
   text: Type.String({ minLength: 1, maxLength: 12000 }),
+  product_ids: Type.Array(uuid, { maxItems: 20, uniqueItems: true }),
   session_id: uuid,
   outcome: Type.Union([Type.Literal("answered"), Type.Literal("limited")]),
   input_tokens: Type.Number({ minimum: 0 }),

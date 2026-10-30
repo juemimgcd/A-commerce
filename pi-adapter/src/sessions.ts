@@ -22,7 +22,8 @@ const recordSchema = Type.Object({
   fingerprint: Type.String(),
   file: Type.String(),
   leaf_id: Type.Optional(Type.String({ minLength: 1 })),
-  reply: replySchema,
+  // Checkpoint navigation needs session metadata, not the current reply selection.
+  reply: Type.Omit(replySchema, ["product_ids"]),
 });
 
 function missingFile(error: unknown) {
@@ -181,6 +182,8 @@ export class ConversationStore {
       );
       if (!Check(recordSchema, saved) || saved.fingerprint !== this.fingerprint)
         throw new HarnessError("IDEMPOTENCY_CONFLICT");
+      if (!Check(replySchema, saved.reply))
+        throw new HarnessError("SUPPORT_INTERRUPTED");
       return saved.reply;
     } catch (error) {
       if (!missingFile(error)) throw error;
