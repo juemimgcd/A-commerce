@@ -167,6 +167,18 @@ services:
       PGDATABASE: ${COMMERCE_DATABASE_NAME:-commerce}
       PGTARGETSESSIONATTRS: read-write
       PGCONNECT_TIMEOUT: "3"
+  postgres-read:
+    image: haproxy:3.2.26-alpine@sha256:dfba86f031bd4c9039f10f8cc5de75991d1b6766d5460f0335b980408503baad
+    extra_hosts: *ha-hosts
+    volumes: ["./haproxy.postgres-read.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    depends_on:
+      ha-ready: {condition: service_completed_successfully}
   rabbitmq:
     <<: *rabbit
     hostname: rabbitmq
@@ -233,10 +245,18 @@ services:
     depends_on: !override
       ha-ready: {condition: service_completed_successfully}
   api:
-    environment: *app-ha
+    environment:
+      <<: *app-ha
+      COMMERCE_CATALOG_READ_DATABASE_URL: postgresql+asyncpg://commerce:${POSTGRES_PASSWORD:?required}@postgres-read:5432/${COMMERCE_DATABASE_NAME:-commerce}?target_session_attrs=standby
+    depends_on:
+      postgres-read: {condition: service_healthy}
     extra_hosts: *ha-hosts
   api-secondary:
-    environment: *app-ha
+    environment:
+      <<: *app-ha
+      COMMERCE_CATALOG_READ_DATABASE_URL: postgresql+asyncpg://commerce:${POSTGRES_PASSWORD:?required}@postgres-read:5432/${COMMERCE_DATABASE_NAME:-commerce}?target_session_attrs=standby
+    depends_on:
+      postgres-read: {condition: service_healthy}
     extra_hosts: *ha-hosts
   api-callbacks:
     environment: *app-ha

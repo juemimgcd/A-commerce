@@ -4,6 +4,8 @@
 
 公开列表和详情还可复用已校验的 JSON 响应，默认 1 秒、最大 5 秒，并保留入口限流与 Redis 版本确认。详细边界、配置和发压工具见 [商品浏览优化与压测工具](catalog-performance.md)。
 
+配置读写分离后，搜索、筛选和分页缓存回源使用副本；未配置时使用主库。查询缓存与 HTTP 响应缓存均按主库/副本来源隔离，复制延迟仍可能叠加缓存时间，不能用于交易判断。配置和故障行为见 [商品查询读写分离](database-read-routing.md)。本机压测证据见 [第一轮](catalog-benchmark-2026-10-30.md) 与 [第二轮](catalog-benchmark-round2-2026-10-30.md)。
+
 ## 请求行为
 
 缓存保存展示数据、`fresh_until` 和 `stale_until`，使用独立的 `logical-v1` 命名空间。

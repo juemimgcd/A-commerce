@@ -110,6 +110,8 @@ async def run_load(config: LoadConfig, data: Dataset) -> dict[str, object]:
 
     async with httpx.AsyncClient(
         base_url=config.base_url,
+        # 本机隔离压测不得经过系统代理，否则代理容量/502 会冒充应用瓶颈。
+        trust_env=False,
         timeout=10,
         limits=httpx.Limits(
             max_connections=config.users * 2, max_keepalive_connections=config.users

@@ -30,6 +30,7 @@ class Resources:
     password_slots: asyncio.Semaphore
     origin_slots: asyncio.Semaphore
     engine: AsyncEngine
+    catalog_read_sessions: async_sessionmaker[AsyncSession] | None = None
     catalog_generation_batch: asyncio.Task[str] | None = None
     catalog_reads: set[asyncio.Task[str]] = field(default_factory=set)
     cache_refreshes: dict[str, asyncio.Task[None]] = field(default_factory=dict)
@@ -53,7 +54,25 @@ async def resources(settings: Settings) -> AsyncIterator[Resources]:
     instrument(engine)
     metrics_server = None
     metrics_thread = None
+    read_engine = None
     try:
+        if settings.catalog_read_database_url is not None:
+            read_engine = database_engine(
+                settings.catalog_read_database_url.get_secret_value(),
+                poolclass=MeasuredPool,
+                pool_size=settings.catalog_read_pool_size,
+                max_overflow=0,
+                pool_timeout=settings.db_pool_timeout,
+                pool_pre_ping=True,
+                pool_recycle=60,
+                server_settings={
+                    "default_transaction_read_only": "on",
+                    "statement_timeout": "5000",
+                    "idle_in_transaction_session_timeout": "10000",
+                    "application_name": "commerce-catalog-reader",
+                },
+            )
+            instrument(read_engine)
         if settings.metrics_port:
             metrics_server, metrics_thread = start_http_server(
                 settings.metrics_port, registry=RuntimeMetrics(engine)
@@ -89,6 +108,11 @@ async def resources(settings: Settings) -> AsyncIterator[Resources]:
                 asyncio.Semaphore(settings.password_concurrency),
                 asyncio.Semaphore(settings.cache_origin_concurrency),
                 engine,
+                catalog_read_sessions=(
+                    async_sessionmaker(read_engine, expire_on_commit=False)
+                    if read_engine is not None
+                    else None
+                ),
             )
             try:
                 yield shared
@@ -103,3 +127,5 @@ async def resources(settings: Settings) -> AsyncIterator[Resources]:
             metrics_server.server_close()
             await asyncio.to_thread(metrics_thread.join, 5)
         await engine.dispose()
+        if read_engine is not None:
+            await read_engine.dispose()

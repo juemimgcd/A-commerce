@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from a_commerce.cache.catalog import cached_catalog
+from a_commerce.conf.catalog_read import catalog_read_session
 from a_commerce.conf.resources import Resources
 from a_commerce.crud.queries import product_outputs
 from a_commerce.errors import CommerceError, missing
@@ -99,7 +100,7 @@ async def list_products(
 ) -> ProductPage:
     if max_price < min_price:
         raise CommerceError("PRICE_RANGE", "最高价格不能低于最低价格。", 422)
-    filtered_query = bool(
+    replica_query = bool(
         query
         or cursor
         or brand
@@ -111,7 +112,7 @@ async def list_products(
     )
 
     async def load() -> ProductPage:
-        async with r.sessions() as session:
+        async with catalog_read_session(r) if replica_query else r.sessions() as session:
             stmt = select(Product).where(Product.active.is_(True))
             if query:
                 stmt = stmt.where(Product.title.icontains(query, autoescape=True))
@@ -139,8 +140,9 @@ async def list_products(
             output = await product_outputs(session, products[:limit])
             return ProductPage(items=output, next_cursor=output[-1].id if more else None)
 
-    # 筛选与分页使用参数完整的短期查询缓存，不使用额外旧值窗口。
-    if filtered_query:
+    # 查询缓存与主库详情/首页隔离；副本结果不能覆盖主库快照。
+    # 副本复制延迟仍然存在，查询缓存只供展示，且不使用额外旧值窗口。
+    if replica_query:
         parameters = json.dumps(
             [
                 query,
@@ -157,7 +159,7 @@ async def list_products(
             separators=(",", ":"),
         )
         digest = hashlib.sha256(parameters.encode()).hexdigest()
-        source = "primary"
+        source = "replica" if r.catalog_read_sessions is not None else "primary"
         return await cached_catalog(r, f"catalog:query:v1:{source}:{digest}", load, query=True)
     key = f"catalog:v1:{category}:{limit}:{min_price}:{max_price}"
     return await cached_catalog(r, key, load)
