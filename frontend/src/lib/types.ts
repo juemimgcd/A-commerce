@@ -1,6 +1,8 @@
 import type { components } from "./api.generated";
 
 type Schema = components["schemas"];
+export type FlashSale = Schema["FlashSaleOut"];
+export type FlashSalePage = Schema["FlashSalePage"];
 export type Product = Schema["ProductOut"];
 export type ProductPage = Schema["ProductPage"];
 export type Sku = Schema["SKUOut"];

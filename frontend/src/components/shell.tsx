@@ -27,6 +27,7 @@ import { Button, ErrorNotice, Modal } from "./ui";
 
 export const adminLinks = [
   { href: "/admin/products", title: "商品", permission: "catalog", icon: Package },
+  { href: "/admin/flash-sales", title: "秒杀管理", permission: "catalog", icon: Receipt },
   { href: "/admin/inventory", title: "库存", permission: "catalog", icon: SlidersHorizontal },
   { href: "/admin/orders", title: "订单履约", permission: "fulfillment", icon: Receipt },
   { href: "/admin/returns", title: "售后申请", permission: "aftersales", icon: ArrowsClockwise },
@@ -44,6 +45,7 @@ export const adminLinks = [
 const mobileLinks = [
   ["/", "首页"],
   ["/products", "全部商品"],
+  ["/flash-sales", "限时秒杀"],
   ["/compare", "规格比较"],
   ["/orders", "我的订单"],
   ["/account", "我的账户"],
@@ -56,6 +58,7 @@ const mobileLinks = [
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchTerm = useSearchParams().get("q") ?? "";
+  const flashCheckout = !!useSearchParams().get("flash_sale");
   const admin = pathname.startsWith("/admin");
   const auth = useAuth();
   const store = useStore();
@@ -179,9 +182,9 @@ export function Shell({ children }: { children: ReactNode }) {
           <header className="store-header">
             <div className="container header-main">
               {checkout ? (
-                <Link className="text-link" href="/cart">
+                <Link className="text-link" href={flashCheckout ? "/flash-sales" : "/cart"}>
                   <ArrowLeft />
-                  返回购物车
+                  {flashCheckout ? "返回限时秒杀" : "返回购物车"}
                 </Link>
               ) : (
                 <>
@@ -228,6 +231,7 @@ export function Shell({ children }: { children: ReactNode }) {
                     {[
                       ["/", "首页"],
                       ["/products", "全部商品"],
+                      ["/flash-sales", "限时秒杀"],
                       ["/compare", "规格比较"],
                       ["/help", "选购指南"],
                       ["/support", "商城客服"],

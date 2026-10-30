@@ -83,6 +83,25 @@ class SKU(Record):
     active: Mapped[bool] = mapped_column(default=True)
 
 
+class FlashSale(Record):
+    __tablename__ = "flash_sales"
+    __table_args__ = (
+        CheckConstraint("price_fen > 0", name="positive_price"),
+        CheckConstraint("stock >= 0 AND claimed >= 0 AND claimed <= stock", name="quota_balance"),
+        CheckConstraint("ends_at > starts_at", name="time_range"),
+        Index("ix_flash_sales_active_ends", "active", "ends_at"),
+    )
+    sku_id: Mapped[UUID] = mapped_column(ForeignKey("skus.id"), index=True)
+    price_fen: Mapped[int] = mapped_column(BigInteger)
+    stock: Mapped[int]
+    # 未取消订单占用的额度（含待付款和已成交），取消时与实物库存一起释放。
+    claimed: Mapped[int] = mapped_column(default=0)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    active: Mapped[bool] = mapped_column(default=False)
+    version: Mapped[int] = mapped_column(default=1)
+
+
 class Stock(Record):
     __tablename__ = "stock_items"
     __table_args__ = (
@@ -177,6 +196,7 @@ class OrderItem(Record):
     )
     order_id: Mapped[UUID] = mapped_column(ForeignKey("orders.id"), index=True)
     sku_id: Mapped[UUID] = mapped_column(ForeignKey("skus.id"))
+    flash_sale_id: Mapped[UUID | None] = mapped_column(ForeignKey("flash_sales.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))
     attributes: Mapped[dict[str, str]] = mapped_column(JSONB)
     quantity: Mapped[int]

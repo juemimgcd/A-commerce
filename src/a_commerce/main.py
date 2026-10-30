@@ -33,7 +33,15 @@ from a_commerce.observability.background import BACKGROUND_METRIC_NAMES, MetricS
 from a_commerce.observability.body_limit import BodyLimitMiddleware
 from a_commerce.observability.http import HTTPObservabilityMiddleware
 from a_commerce.observability.runtime import RuntimeMetrics, pool_metrics
-from a_commerce.routers import admin, callbacks, customer, operations, storefront, support
+from a_commerce.routers import (
+    admin,
+    callbacks,
+    customer,
+    flash_sales,
+    operations,
+    storefront,
+    support,
+)
 
 log = structlog.get_logger()
 
@@ -62,6 +70,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if settings.api_role in {"all", "public"}:
         for router in (
             customer.router,
+            flash_sales.router,
             admin.router,
             operations.router,
             storefront.router,
@@ -130,7 +139,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise CommerceError("DRAINING", "当前实例正在退出。", 503, True)
         async with request.app.state.resources.sessions() as session:
             revision = await session.scalar(text("SELECT version_num FROM alembic_version"))
-        if revision != "0007_harness":
+        if revision != "0008_flash_sales":
             raise CommerceError("MIGRATION_REQUIRED", "数据库迁移版本不匹配。", 503)
         return {"status": "ready", "revision": revision}
 

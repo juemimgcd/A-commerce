@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/api/v1/customer/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Categories */
+        get: operations["categories_api_v1_customer_categories_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customer/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Products */
+        get: operations["products_api_v1_customer_products_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customer/products/{product_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Product */
+        get: operations["product_api_v1_customer_products__product_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customer/orders/{order_id}/shipment": {
         parameters: {
             query?: never;
@@ -363,57 +414,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/customer/categories": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Categories */
-        get: operations["categories_api_v1_customer_categories_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/customer/products": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Products */
-        get: operations["products_api_v1_customer_products_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/customer/products/{product_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Product */
-        get: operations["product_api_v1_customer_products__product_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/customer/cart": {
         parameters: {
             query?: never;
@@ -613,6 +613,75 @@ export interface paths {
         /** List Events */
         get: operations["list_events_api_v1_customer_events_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customer/flash-sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Sales */
+        get: operations["public_sales_api_v1_customer_flash_sales_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customer/flash-sales/{sale_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Sale */
+        get: operations["public_sale_api_v1_customer_flash_sales__sale_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/flash-sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Sales */
+        get: operations["admin_sales_api_v1_admin_flash_sales_get"];
+        put?: never;
+        /** Create Sale */
+        post: operations["create_sale_api_v1_admin_flash_sales_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/flash-sales/{sale_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Sale */
+        put: operations["update_sale_api_v1_admin_flash_sales__sale_id__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2291,6 +2360,127 @@ export interface components {
              */
             feedback: "helpful" | "unhelpful";
         };
+        /** FlashSaleIn */
+        FlashSaleIn: {
+            /**
+             * Sku Id
+             * Format: uuid
+             */
+            sku_id: string;
+            /** Price Fen */
+            price_fen: number;
+            /** Stock */
+            stock: number;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Active
+             * @default false
+             */
+            active: boolean;
+        };
+        /** FlashSaleOut */
+        FlashSaleOut: {
+            /**
+             * Sku Id
+             * Format: uuid
+             */
+            sku_id: string;
+            /** Price Fen */
+            price_fen: number;
+            /** Stock */
+            stock: number;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Active
+             * @default false
+             */
+            active: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version */
+            version: number;
+            /** Claimed */
+            claimed: number;
+            /** Available */
+            available: number;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /** Title */
+            title: string;
+            /** Attributes */
+            attributes: {
+                [key: string]: string;
+            };
+            /** Regular Price Fen */
+            regular_price_fen: number;
+            /** Cover Media Id */
+            cover_media_id: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "disabled" | "scheduled" | "active" | "ended" | "sold_out" | "unavailable";
+        };
+        /** FlashSalePage */
+        FlashSalePage: {
+            /** Items */
+            items: components["schemas"]["FlashSaleOut"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
+        /** FlashSaleUpdate */
+        FlashSaleUpdate: {
+            /**
+             * Sku Id
+             * Format: uuid
+             */
+            sku_id: string;
+            /** Price Fen */
+            price_fen: number;
+            /** Stock */
+            stock: number;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Active
+             * @default false
+             */
+            active: boolean;
+            /** Expected Version */
+            expected_version: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -2595,6 +2785,8 @@ export interface components {
             quantity: number;
             /** Returned Quantity */
             returned_quantity: number;
+            /** Flash Sale Id */
+            flash_sale_id?: string | null;
         };
         /** OrderOut */
         OrderOut: {
@@ -2852,6 +3044,10 @@ export interface components {
             attributes?: {
                 [key: string]: string;
             };
+            /** Flash Sale Id */
+            flash_sale_id?: string;
+            /** Flash Sale Version */
+            flash_sale_version?: number;
         };
         /** QuoteLine */
         QuoteLine: {
@@ -2862,6 +3058,8 @@ export interface components {
             sku_id: string;
             /** Quantity */
             quantity: number;
+            /** Flash Sale Id */
+            flash_sale_id?: string | null;
         };
         /** QuoteOut */
         QuoteOut: {
@@ -3541,6 +3739,95 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    categories_api_v1_customer_categories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryOut"][];
+                };
+            };
+        };
+    };
+    products_api_v1_customer_products_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                category?: string | null;
+                cursor?: string | null;
+                limit?: number;
+                min_price?: number;
+                max_price?: number;
+                brand?: string;
+                attribute?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    product_api_v1_customer_products__product_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     shipment_api_v1_customer_orders__order_id__shipment_get: {
         parameters: {
             query?: never;
@@ -4215,95 +4502,6 @@ export interface operations {
             };
         };
     };
-    categories_api_v1_customer_categories_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CategoryOut"][];
-                };
-            };
-        };
-    };
-    products_api_v1_customer_products_get: {
-        parameters: {
-            query?: {
-                q?: string;
-                category?: string | null;
-                cursor?: string | null;
-                limit?: number;
-                min_price?: number;
-                max_price?: number;
-                brand?: string;
-                attribute?: string[] | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProductPage"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    product_api_v1_customer_products__product_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                product_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProductOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_cart_api_v1_customer_cart_get: {
         parameters: {
             query?: never;
@@ -4737,6 +4935,169 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_sales_api_v1_customer_flash_sales_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlashSalePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_sale_api_v1_customer_flash_sales__sale_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sale_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlashSaleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_sales_api_v1_admin_flash_sales_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlashSalePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_sale_api_v1_admin_flash_sales_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlashSaleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlashSaleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_sale_api_v1_admin_flash_sales__sale_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sale_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlashSaleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlashSaleOut"];
                 };
             };
             /** @description Validation Error */
