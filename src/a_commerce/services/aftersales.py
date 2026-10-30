@@ -15,9 +15,11 @@ from a_commerce.models.base import now
 from a_commerce.models.entities import (
     Audit,
     IdempotencyRecord,
+    Order,
     OrderItem,
     ReturnItem,
     ReturnRequest,
+    Shop,
     Stock,
     StockMovement,
 )
@@ -25,6 +27,7 @@ from a_commerce.schemas.api import InspectionIn, ReturnIn, ReturnOut, Schema
 from a_commerce.services.events import record_event
 from a_commerce.services.identity import Principal, authorize
 from a_commerce.services.refunds import reserve_refund
+from a_commerce.services.shop_access import scope
 
 
 class ReturnParcelIn(Schema):
@@ -68,13 +71,22 @@ async def progress(
     action: Literal["approve", "reject", "ship", "receive"],
     reason: str = "",
     parcel: ReturnParcelIn | None = None,
+    *,
+    shop_id: UUID | None = None,
 ) -> ReturnOut:
     async with r.sessions.begin() as session:
-        await authorize(session, p, None if action == "ship" else "aftersales", lock=True)
+        if shop_id is not None:
+            await scope(session, p, shop_id, "aftersales", write=True, sensitive=True)
+            if action == "ship":
+                raise missing()
+        else:
+            await authorize(session, p, None if action == "ship" else "aftersales", lock=True)
         record = await session.get(ReturnRequest, return_id)
         if record is None or (action == "ship" and record.user_id != p.id):
             raise missing()
         order = await order_locked(session, record.order_id)
+        if shop_id is not None and order.shop_id != shop_id:
+            raise missing()
         await session.refresh(record, with_for_update=True)
         before, after = {
             "approve": ("requested", "approved"),
@@ -105,6 +117,8 @@ async def progress(
         session.add(
             Audit(
                 actor_id=p.id,
+                actor_kind=p.kind,
+                shop_id=order.shop_id,
                 action=f"return.{action}",
                 resource_id=record.id,
                 detail=reason or f"退货状态 {before} → {after}",
@@ -120,6 +134,15 @@ async def request_return(
     fingerprint = hashlib.sha256(f"{order_id}:{data.model_dump_json()}".encode()).hexdigest()
     async with r.sessions.begin() as session:
         await authorize(session, p, lock=True)
+        # 与关闭店铺按相同顺序锁店铺 → 订单；关闭检查不能越过正在提交的退货申请。
+        shop = await session.scalar(
+            select(Shop)
+            .join(Order, Order.shop_id == Shop.id)
+            .where(Order.id == order_id, Order.user_id == p.id)
+            .with_for_update(of=Shop, read=True)
+        )
+        if shop is None:
+            raise missing()
         order = await order_locked(session, order_id)
         if order.user_id != p.id:
             raise missing()
@@ -137,6 +160,8 @@ async def request_return(
             if existing is None:
                 raise missing()
             return (await return_outputs(session, [existing], r.settings.shop.return_address))[0]
+        if shop.status == "closed":
+            raise CommerceError("SHOP_CLOSED", "店铺已关闭，不能创建新的退货申请。", 409)
         if order.version != data.expected_version or order.fulfillment_status != "delivered":
             raise CommerceError("ORDER_STATE_CONFLICT", "订单版本已变化或尚未签收。")
         if order.delivered_at is None or now() > order.delivered_at + timedelta(
@@ -179,23 +204,34 @@ async def request_return(
 
 
 async def get_return(
-    r: Resources, p: Principal, return_id: UUID, *, admin: bool = False
+    r: Resources, p: Principal, return_id: UUID, *, admin: bool = False, shop_id: UUID | None = None
 ) -> ReturnOut:
     async with r.sessions() as session:
-        await authorize(session, p, "aftersales" if admin else None)
+        if shop_id is not None:
+            await scope(session, p, shop_id, "aftersales")
+        else:
+            await authorize(session, p, "aftersales" if admin else None)
         record = await session.get(ReturnRequest, return_id)
-        if record is None or (not admin and record.user_id != p.id):
+        if record is None or (shop_id is None and not admin and record.user_id != p.id):
             raise missing()
+        if shop_id is not None:
+            order = await session.get(Order, record.order_id)
+            if order is None or order.shop_id != shop_id:
+                raise missing()
         return (await return_outputs(session, [record], r.settings.shop.return_address))[0]
 
 
-async def inspect(r: Resources, p: Principal, return_id: UUID, data: InspectionIn) -> ReturnOut:
+async def inspect(
+    r: Resources, p: Principal, return_id: UUID, data: InspectionIn, *, shop_id: UUID | None = None
+) -> ReturnOut:
     async with r.sessions.begin() as session:
-        await authorize(session, p, "aftersales", lock=True)
+        await scope(session, p, shop_id, "aftersales", write=True, sensitive=True)
         record = await session.get(ReturnRequest, return_id)
         if record is None:
             raise missing()
         order = await order_locked(session, record.order_id)
+        if shop_id is not None and order.shop_id != shop_id:
+            raise missing()
         await session.refresh(record, with_for_update=True)
         if record.status == "inspected":
             return (await return_outputs(session, [record], r.settings.shop.return_address))[0]
@@ -235,13 +271,27 @@ async def inspect(r: Resources, p: Principal, return_id: UUID, data: InspectionI
                     )
                 )
         # 本版快照明确部分退货不退运费，取消整单才退全额，避免重复退运费。
-        refund = await reserve_refund(session, order, amount, f"return:{record.id}")
+        refund = await reserve_refund(
+            session,
+            order,
+            amount,
+            f"return:{record.id}",
+            [(original, item.quantity) for item, original in rows],
+        )
+        record.inspected_at, record.resellable = now(), data.resellable
         record.status = "inspected"
         record.inspection_note = data.note
         record.refund_id = refund.id
         order.version += 1
         session.add(
-            Audit(actor_id=p.id, action="return.inspect", resource_id=record.id, detail=data.note)
+            Audit(
+                actor_id=p.id,
+                actor_kind=p.kind,
+                shop_id=order.shop_id,
+                action="return.inspect",
+                resource_id=record.id,
+                detail=data.note,
+            )
         )
         await record_event(session, order, "return.inspected")
         return (await return_outputs(session, [record], r.settings.shop.return_address))[0]

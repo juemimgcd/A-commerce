@@ -5,6 +5,12 @@ export const runtime = "nodejs";
 const uuid = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const rules: Record<string, RegExp[]> = {
   GET: [
+    /^(merchant|admin)\/shops$/,
+    new RegExp(`^admin/shops/${uuid}/(products|reports)$`),
+    new RegExp(`^merchant/shops/${uuid}/(products|orders|returns|reports|conversations)$`),
+    new RegExp(
+      `^merchant/shops/${uuid}/(orders/${uuid}|returns/${uuid}|products/${uuid}/media|conversations/${uuid}/messages)$`,
+    ),
     /^(customer|admin)\/flash-sales$/,
     new RegExp(`^customer/flash-sales/${uuid}$`),
     /^(customer\/(memory|support\/conversations)|admin\/(customer-insights|customer-audience))$/,
@@ -20,6 +26,10 @@ const rules: Record<string, RegExp[]> = {
     ),
   ],
   POST: [
+    /^admin\/shops$/,
+    new RegExp(
+      `^merchant/shops/${uuid}/(products|conversations|products/${uuid}/(skus|media)|inventory/${uuid}/adjust|orders/${uuid}/(pick|ship|deliver)|returns/${uuid}/(approve|reject|receive|inspection)|conversations/${uuid}/messages|runs/${uuid}/cancel)$`,
+    ),
     /^admin\/flash-sales$/,
     /^customer\/(memory\/items|support\/conversations)$/,
     new RegExp(`^customer/support/runs/${uuid}/cancel$`),
@@ -34,6 +44,10 @@ const rules: Record<string, RegExp[]> = {
     ),
   ],
   PUT: [
+    new RegExp(`^admin/shops/${uuid}/skus/${uuid}/cost$`),
+    new RegExp(
+      `^(admin/shops/${uuid}(/status)?|merchant/shops/${uuid}(/products/${uuid}(/skus/${uuid})?|/skus/${uuid}/cost)?)$`,
+    ),
     new RegExp(`^admin/flash-sales/${uuid}$`),
     /^customer\/memory\/settings$/,
     new RegExp(`^customer/(memory/items/${uuid}(/decision)?|support/runs/${uuid}/feedback)$`),

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from a_commerce.conf.resources import Resources
 from a_commerce.errors import CommerceError, missing
 from a_commerce.models.base import now
-from a_commerce.models.entities import SKU, Audit, FlashSale, Media, Product, Stock
+from a_commerce.models.entities import SKU, Audit, FlashSale, Media, Product, Shop, Stock
 from a_commerce.schemas.flash_sales import FlashSaleIn, FlashSaleOut, FlashSalePage, FlashSaleUpdate
 from a_commerce.services.identity import Principal, authorize
 
@@ -24,9 +24,11 @@ async def lock_sales(session: AsyncSession, ids: list[UUID]) -> dict[UUID, Flash
     }
 
 
-def validate_sale(sale: FlashSale | None, sku_id: UUID, quantity: int) -> FlashSale:
-    if sale is None or sale.sku_id != sku_id or not sale.active:
+def validate_sale(sale: FlashSale | None, sku: SKU, quantity: int) -> FlashSale:
+    if sale is None or sale.sku_id != sku.id or not sale.active:
         raise CommerceError("FLASH_SALE_UNAVAILABLE", "秒杀已下架或商品不匹配，请重新选择。")
+    if sale.price_fen > sku.price_fen:
+        raise CommerceError("FLASH_SALE_UNAVAILABLE", "秒杀价高于当前商品售价，请按日常价格购买。")
     current = now()
     if not sale.starts_at <= current < sale.ends_at:
         raise CommerceError("FLASH_SALE_INACTIVE", "秒杀尚未开始或已经结束。")
@@ -54,6 +56,14 @@ async def sale_output(session: AsyncSession, rows: list[FlashSale]) -> list[Flas
             .where(SKU.id.in_([row.sku_id for row in rows]))
         )
     }
+    shops = {
+        s.id: s
+        for s in await session.scalars(
+            select(Shop).where(
+                Shop.id.in_([product.shop_id for _, product, _, _ in catalog.values()])
+            )
+        )
+    }
     current = now()
     output: list[FlashSaleOut] = []
     for row in rows:
@@ -63,7 +73,12 @@ async def sale_output(session: AsyncSession, rows: list[FlashSale]) -> list[Flas
             "disabled"
             if not row.active
             else "unavailable"
-            if not sku.active or not product.active
+            if (
+                not sku.active
+                or not product.active
+                or shops[product.shop_id].status != "active"
+                or row.price_fen > sku.price_fen
+            )
             else "ended"
             if current >= row.ends_at
             else "scheduled"
@@ -104,11 +119,14 @@ async def list_sales(
             query = (
                 query.join(SKU, SKU.id == FlashSale.sku_id)
                 .join(Product)
+                .join(Shop)
                 .where(
                     FlashSale.active.is_(True),
                     FlashSale.ends_at > now(),
                     SKU.active.is_(True),
+                    FlashSale.price_fen <= SKU.price_fen,
                     Product.active.is_(True),
+                    Shop.status == "active",
                 )
             )
         if cursor:

@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from a_commerce.models.base import Record
+from a_commerce.models.shops import LEGACY_SHOP_ID
 from a_commerce.models.snapshots import QuoteItem
 
 
@@ -62,8 +63,24 @@ class Category(Record):
     name: Mapped[str] = mapped_column(String(100), unique=True)
 
 
+class Shop(Record):
+    __tablename__ = "shops"
+    __table_args__ = (
+        CheckConstraint("status IN ('active', 'suspended', 'closed')", name="shop_status"),
+    )
+    owner_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    status: Mapped[str] = mapped_column(String(16), default="suspended")
+    return_address: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    version: Mapped[int] = mapped_column(default=1)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class Product(Record):
     __tablename__ = "products"
+    shop_id: Mapped[UUID] = mapped_column(
+        ForeignKey("shops.id"), index=True, default=LEGACY_SHOP_ID
+    )
     category_id: Mapped[UUID] = mapped_column(ForeignKey("categories.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))
     brand: Mapped[str] = mapped_column(String(100), default="")
@@ -74,11 +91,16 @@ class Product(Record):
 
 class SKU(Record):
     __tablename__ = "skus"
-    __table_args__ = (CheckConstraint("price_fen > 0", name="positive_price"),)
+    __table_args__ = (
+        CheckConstraint("price_fen > 0", name="positive_price"),
+        CheckConstraint("cost_fen IS NULL OR cost_fen >= 0", name="nonnegative_cost"),
+    )
     product_id: Mapped[UUID] = mapped_column(ForeignKey("products.id"), index=True)
     code: Mapped[str] = mapped_column(String(80), unique=True)
     attributes: Mapped[dict[str, str]] = mapped_column(JSONB)
     price_fen: Mapped[int] = mapped_column(BigInteger)
+    cost_fen: Mapped[int | None] = mapped_column(BigInteger)
+    cost_version: Mapped[int] = mapped_column(default=1)
     version: Mapped[int] = mapped_column(default=1)
     active: Mapped[bool] = mapped_column(default=True)
 
@@ -146,6 +168,8 @@ class Favorite(Record):
 
 class Quote(Record):
     __tablename__ = "quotes"
+    shop_id: Mapped[UUID] = mapped_column(ForeignKey("shops.id"), default=LEGACY_SHOP_ID)
+    shop_version: Mapped[int] = mapped_column(default=1)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
     address_id: Mapped[UUID] = mapped_column(ForeignKey("addresses.id"))
     address_version: Mapped[int]
@@ -162,6 +186,8 @@ class Order(Record):
     __table_args__ = (
         Index("ix_orders_user_created", "user_id", "created_at", "id"),
         Index("ix_orders_expiry", "status", "expires_at"),
+        Index("ix_orders_shop_created", "shop_id", "created_at", "id"),
+        Index("ix_orders_shop_paid", "shop_id", "paid_at"),
         CheckConstraint(
             "total_fen > 0 AND refund_reserved_fen >= 0 AND refunded_fen >= 0 "
             "AND refund_reserved_fen + refunded_fen <= total_fen",
@@ -169,6 +195,8 @@ class Order(Record):
         ),
     )
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    shop_id: Mapped[UUID] = mapped_column(ForeignKey("shops.id"), default=LEGACY_SHOP_ID)
+    return_address: Mapped[dict[str, str] | None] = mapped_column(JSONB)
     quote_id: Mapped[UUID] = mapped_column(ForeignKey("quotes.id"), unique=True)
     status: Mapped[str] = mapped_column(String(32), default="pending_payment")
     payment_status: Mapped[str] = mapped_column(String(32), default="preparing")
@@ -189,6 +217,7 @@ class OrderItem(Record):
     __tablename__ = "order_items"
     __table_args__ = (
         UniqueConstraint("order_id", "sku_id"),
+        CheckConstraint("cost_fen IS NULL OR cost_fen >= 0", name="nonnegative_cost"),
         CheckConstraint(
             "quantity > 0 AND returned_quantity >= 0 AND returned_quantity <= quantity",
             name="return_quantity",
@@ -202,6 +231,11 @@ class OrderItem(Record):
     quantity: Mapped[int]
     price_fen: Mapped[int] = mapped_column(BigInteger)
     returned_quantity: Mapped[int] = mapped_column(default=0)
+    product_id: Mapped[UUID | None] = mapped_column(ForeignKey("products.id"))
+    category_id: Mapped[UUID | None] = mapped_column(ForeignKey("categories.id"))
+    category_name: Mapped[str | None] = mapped_column(String(100))
+    regular_price_fen: Mapped[int | None] = mapped_column(BigInteger)
+    cost_fen: Mapped[int | None] = mapped_column(BigInteger)
 
 
 class PaymentIntent(Record):
@@ -229,6 +263,19 @@ class Refund(Record):
     amount_fen: Mapped[int] = mapped_column(BigInteger)
     status: Mapped[str] = mapped_column(String(32), default="pending")
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    shipping_fen: Mapped[int | None] = mapped_column(BigInteger)
+
+
+class RefundItem(Record):
+    __tablename__ = "refund_items"
+    __table_args__ = (
+        UniqueConstraint("refund_id", "order_item_id"),
+        CheckConstraint("amount_fen > 0 AND quantity >= 0", name="refund_item_balance"),
+    )
+    refund_id: Mapped[UUID] = mapped_column(ForeignKey("refunds.id"), index=True)
+    order_item_id: Mapped[UUID] = mapped_column(ForeignKey("order_items.id"), index=True)
+    amount_fen: Mapped[int] = mapped_column(BigInteger)
+    quantity: Mapped[int]
 
 
 class ReturnRequest(Record):
@@ -241,6 +288,8 @@ class ReturnRequest(Record):
     refund_id: Mapped[UUID | None] = mapped_column(ForeignKey("refunds.id"))
     carrier: Mapped[str | None] = mapped_column(String(80))
     tracking_number: Mapped[str | None] = mapped_column(String(100))
+    inspected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resellable: Mapped[bool | None]
 
 
 class ReturnItem(Record):
@@ -283,6 +332,8 @@ class Audit(Record):
     action: Mapped[str] = mapped_column(String(80), index=True)
     resource_id: Mapped[UUID]
     detail: Mapped[str] = mapped_column(String(500))
+    actor_kind: Mapped[str | None] = mapped_column(String(16))
+    shop_id: Mapped[UUID | None] = mapped_column(ForeignKey("shops.id"), index=True)
 
 
 class Operation(Record):
@@ -418,7 +469,8 @@ class ExportJob(Record):
 class Media(Record):
     __tablename__ = "product_media"
     product_id: Mapped[UUID] = mapped_column(ForeignKey("products.id"), index=True)
-    staff_id: Mapped[UUID] = mapped_column(ForeignKey("staff.id"))
+    staff_id: Mapped[UUID | None] = mapped_column(ForeignKey("staff.id"))
+    user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))
     storage_key: Mapped[str] = mapped_column(String(160), unique=True)
     content_type: Mapped[str] = mapped_column(String(32))
     size_bytes: Mapped[int]

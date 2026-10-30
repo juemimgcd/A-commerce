@@ -26,6 +26,7 @@ import { useAuth, useStore } from "./providers";
 import { Button, ErrorNotice, Modal } from "./ui";
 
 export const adminLinks = [
+  { href: "/admin/shops", title: "店铺管理", permission: "identity", icon: Users },
   { href: "/admin/products", title: "商品", permission: "catalog", icon: Package },
   { href: "/admin/flash-sales", title: "秒杀管理", permission: "catalog", icon: Receipt },
   { href: "/admin/inventory", title: "库存", permission: "catalog", icon: SlidersHorizontal },
@@ -53,6 +54,7 @@ const mobileLinks = [
   ["/returns", "售后进度"],
   ["/help", "购物帮助"],
   ["/support", "商城客服"],
+  ["/merchant", "商家工作台"],
 ] as const;
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -102,7 +104,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <div className="admin-app">
           <aside className="sidebar">
             <Link href="/admin" className="sidebar-title">
-              商家工作台
+              平台管理
             </Link>
             {adminNavigation}
             <Link className="back-store" href="/">
@@ -117,7 +119,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   <List size={22} />
                 </Button>
               </div>
-              <span className="topbar-label">商家工作台</span>
+              <span className="topbar-label">平台管理</span>
               <Link href="/admin/account" className="account-label">
                 <UserCircle size={20} />
                 {auth.admin?.email ?? "未登录"}
@@ -235,6 +237,7 @@ export function Shell({ children }: { children: ReactNode }) {
                       ["/compare", "规格比较"],
                       ["/help", "选购指南"],
                       ["/support", "商城客服"],
+                      ["/merchant", "商家工作台"],
                     ].map(([href, title]) => (
                       <Link
                         key={href}
@@ -279,7 +282,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 <h2>关于商城</h2>
                 <Link href="/policies/privacy">隐私说明</Link>
                 <Link href="/policies/terms">使用条款</Link>
-                <Link href="/admin">
+                <Link href="/merchant">
                   商家入口 <ArrowUpRight size={14} />
                 </Link>
               </nav>
@@ -331,6 +334,7 @@ export function AccountNavigation({ admin = false }: { admin?: boolean }) {
             ? [["/admin/account", "会话与密码"]]
             : [
                 ["/account", "账户概览"],
+                ["/merchant", "经营店铺"],
                 ["/account/addresses", "收货地址"],
                 ["/account/favorites", "收藏"],
                 ["/account/notifications", "通知"],

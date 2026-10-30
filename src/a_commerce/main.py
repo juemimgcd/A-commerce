@@ -38,6 +38,7 @@ from a_commerce.routers import (
     callbacks,
     customer,
     flash_sales,
+    merchant,
     operations,
     storefront,
     support,
@@ -62,7 +63,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.resources = shared
             yield
 
-    app = FastAPI(title="A-commerce 单店电商后端", version=__version__, lifespan=lifespan)
+    app = FastAPI(title="A-commerce 电商后端", version=__version__, lifespan=lifespan)
     app.add_middleware(BodyLimitMiddleware)
     app.add_middleware(CatalogResponseCacheMiddleware)
     app.add_middleware(HTTPObservabilityMiddleware)
@@ -72,6 +73,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             customer.router,
             flash_sales.router,
             admin.router,
+            merchant.router,
             operations.router,
             storefront.router,
             support.router,
@@ -139,7 +141,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise CommerceError("DRAINING", "当前实例正在退出。", 503, True)
         async with request.app.state.resources.sessions() as session:
             revision = await session.scalar(text("SELECT version_num FROM alembic_version"))
-        if revision != "0008_flash_sales":
+        if revision != "0009_merchants":
             raise CommerceError("MIGRATION_REQUIRED", "数据库迁移版本不匹配。", 503)
         return {"status": "ready", "revision": revision}
 

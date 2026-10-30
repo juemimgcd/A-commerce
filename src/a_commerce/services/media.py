@@ -10,10 +10,11 @@ from a_commerce.conf.resources import Resources
 from a_commerce.errors import CommerceError, missing
 from a_commerce.integrations.storage import delete_object, put, sanitize_image
 from a_commerce.models.base import now
-from a_commerce.models.entities import Audit, Media, Product, StoredObject
+from a_commerce.models.entities import Audit, Media, Product, Shop, StoredObject
 from a_commerce.schemas.api import Schema
 from a_commerce.services.catalog import record_change
-from a_commerce.services.identity import Principal, authorize
+from a_commerce.services.identity import Principal
+from a_commerce.services.shop_access import scope
 
 
 class MediaOut(Schema):
@@ -23,12 +24,15 @@ class MediaOut(Schema):
     size_bytes: int
 
 
-async def upload(r: Resources, p: Principal, product_id: UUID, body: bytes) -> MediaOut:
+async def upload(
+    r: Resources, p: Principal, product_id: UUID, body: bytes, *, shop_id: UUID | None = None
+) -> MediaOut:
     if len(body) > 8 * 1024 * 1024:
         raise CommerceError("MEDIA_TOO_LARGE", "图片不能超过 8 MiB。", 413)
     async with r.sessions() as session:
-        await authorize(session, p, "catalog")
-        if await session.get(Product, product_id) is None:
+        await scope(session, p, shop_id, "catalog", catalog=shop_id is not None)
+        product = await session.get(Product, product_id)
+        if product is None or (shop_id is not None and product.shop_id != shop_id):
             raise missing()
     # 与密码线程分开使用有界回源槽位，避免任意上传无限占用解码线程和内存。
     async with asyncio.timeout(15), r.origin_slots:
@@ -43,11 +47,11 @@ async def upload(r: Resources, p: Principal, product_id: UUID, body: bytes) -> M
             session.add(StoredObject(storage_key=key, backend=r.settings.storage_backend))
         await asyncio.to_thread(put, r.settings, key, content, content_type)
     async with r.sessions.begin() as session:
-        await authorize(session, p, "catalog", lock=True)
+        await scope(session, p, shop_id, "catalog", write=True, catalog=shop_id is not None)
         product = await session.scalar(
             select(Product).where(Product.id == product_id).with_for_update()
         )
-        if product is None:
+        if product is None or (shop_id is not None and product.shop_id != shop_id):
             raise missing()
         stored = (
             await session.scalars(
@@ -60,7 +64,8 @@ async def upload(r: Resources, p: Principal, product_id: UUID, body: bytes) -> M
         record = Media(
             id=media_id,
             product_id=product_id,
-            staff_id=p.id,
+            staff_id=p.id if p.kind == "staff" else None,
+            user_id=p.id if p.kind == "customer" else None,
             storage_key=key,
             content_type=content_type,
             size_bytes=len(content),
@@ -71,6 +76,8 @@ async def upload(r: Resources, p: Principal, product_id: UUID, body: bytes) -> M
         session.add(
             Audit(
                 actor_id=p.id,
+                actor_kind=p.kind,
+                shop_id=product.shop_id,
                 action="media.upload",
                 resource_id=media_id,
                 detail="图片已解码、去元数据并关联商品",
@@ -117,7 +124,8 @@ async def get_media(r: Resources, media_id: UUID) -> Media:
         record = await session.scalar(
             select(Media)
             .join(Product, Product.id == Media.product_id)
-            .where(Media.id == media_id, Product.active.is_(True))
+            .join(Shop, Shop.id == Product.shop_id)
+            .where(Media.id == media_id, Product.active.is_(True), Shop.status == "active")
         )
         if record is None:
             raise missing()

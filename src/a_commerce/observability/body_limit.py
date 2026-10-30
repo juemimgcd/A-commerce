@@ -15,7 +15,8 @@ class BodyLimitMiddleware:
         path = scope.get("path", "")
         maximum = (
             8 * 1024 * 1024
-            if path.startswith("/api/v1/admin/products/") and path.endswith("/media")
+            if path.startswith(("/api/v1/admin/products/", "/api/v1/merchant/shops/"))
+            and path.endswith("/media")
             else 128 * 1024
         )
         consumed = 0

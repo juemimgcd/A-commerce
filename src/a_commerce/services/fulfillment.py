@@ -4,21 +4,30 @@ from uuid import UUID
 
 from a_commerce.conf.resources import Resources
 from a_commerce.crud.queries import order_locked, order_output
-from a_commerce.errors import CommerceError
+from a_commerce.errors import CommerceError, missing
 from a_commerce.models.base import now
 from a_commerce.models.entities import Audit, Shipment
 from a_commerce.schemas.api import OrderOut, ShipmentIn, VersionIn
 from a_commerce.services.events import record_event
-from a_commerce.services.identity import Principal, authorize
+from a_commerce.services.identity import Principal
 from a_commerce.services.inventory import move_order_stock
+from a_commerce.services.shop_access import scope
 
 
 async def transition(
-    r: Resources, p: Principal, order_id: UUID, action: str, data: VersionIn | ShipmentIn
+    r: Resources,
+    p: Principal,
+    order_id: UUID,
+    action: str,
+    data: VersionIn | ShipmentIn,
+    *,
+    shop_id: UUID | None = None,
 ) -> OrderOut:
     async with r.sessions.begin() as session:
-        await authorize(session, p, "fulfillment", lock=True)
+        await scope(session, p, shop_id, "fulfillment", write=True, sensitive=True)
         order = await order_locked(session, order_id)
+        if shop_id is not None and order.shop_id != shop_id:
+            raise missing()
         allowed = {
             "pick": ("unfulfilled", "fulfilling"),
             "ship": ("fulfilling", "shipped"),
@@ -47,6 +56,8 @@ async def transition(
         session.add(
             Audit(
                 actor_id=p.id,
+                actor_kind=p.kind,
+                shop_id=order.shop_id,
                 action=f"fulfillment.{action}",
                 resource_id=order.id,
                 detail=f"{before} → {after}",

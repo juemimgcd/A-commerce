@@ -1,6 +1,6 @@
 """客服专用契约。工具只能选择列出的业务能力，不能指定用户身份或任意 URL。"""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -140,8 +140,28 @@ class ProposeMemoryTool(MemoryIn):
     evidence: str = Field(min_length=2, max_length=240)
 
 
+class MerchantReportTool(Schema):
+    tool: Literal["get_shop_sales_summary", "get_product_sales", "get_shop_customer_statistics"]
+    start: date
+    end: date
+    product_id: UUID | None = None
+
+
+class MerchantListTool(Schema):
+    tool: Literal["list_shop_orders", "list_shop_products"]
+    cursor: str | None = Field(default=None, max_length=200)
+    limit: int = Field(default=10, ge=1, le=20)
+
+
 SupportTool = Annotated[
-    SearchTool | ProductTool | OrderTool | ReturnTool | SimpleTool | ProposeMemoryTool,
+    SearchTool
+    | ProductTool
+    | OrderTool
+    | ReturnTool
+    | SimpleTool
+    | ProposeMemoryTool
+    | MerchantReportTool
+    | MerchantListTool,
     Field(discriminator="tool"),
 ]
 

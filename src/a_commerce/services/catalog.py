@@ -19,6 +19,7 @@ from a_commerce.models.entities import (
     Category,
     IdempotencyRecord,
     Product,
+    Shop,
     Stock,
     StockMovement,
 )
@@ -35,14 +36,22 @@ from a_commerce.schemas.api import (
 )
 from a_commerce.services.identity import Principal, authorize
 from a_commerce.services.operations import enqueue
+from a_commerce.services.shop_access import scope
 
 
 async def admin_products(
-    r: Resources, p: Principal, query: str, cursor: UUID | None, limit: int
+    r: Resources,
+    p: Principal,
+    query: str,
+    cursor: UUID | None,
+    limit: int,
+    shop_id: UUID | None = None,
 ) -> ProductPage:
     async with r.sessions() as session:
-        await authorize(session, p, "catalog")
+        await scope(session, p, shop_id, "catalog")
         statement = select(Product)
+        if shop_id is not None:
+            statement = statement.where(Product.shop_id == shop_id)
         if query:
             statement = statement.where(Product.title.icontains(query, autoescape=True))
         if cursor:
@@ -113,7 +122,9 @@ async def list_products(
 
     async def load() -> ProductPage:
         async with catalog_read_session(r) if replica_query else r.sessions() as session:
-            stmt = select(Product).where(Product.active.is_(True))
+            stmt = (
+                select(Product).join(Shop).where(Product.active.is_(True), Shop.status == "active")
+            )
             if query:
                 stmt = stmt.where(Product.title.icontains(query, autoescape=True))
             if category:
@@ -169,7 +180,12 @@ async def get_product(r: Resources, product_id: UUID) -> ProductOut:
     async def load() -> ProductPage:
         async with r.sessions() as session:
             product = await session.get(Product, product_id)
-            if product is None or not product.active:
+            if (
+                product is None
+                or not product.active
+                or await session.scalar(select(Shop.status).where(Shop.id == product.shop_id))
+                != "active"
+            ):
                 return ProductPage(items=[])
             return ProductPage(items=await product_outputs(session, [product]))
 
@@ -180,21 +196,40 @@ async def get_product(r: Resources, product_id: UUID) -> ProductOut:
 
 
 async def save_product(
-    r: Resources, p: Principal, data: ProductIn, product_id: UUID | None = None
+    r: Resources,
+    p: Principal,
+    data: ProductIn,
+    product_id: UUID | None = None,
+    *,
+    shop_id: UUID | None = None,
+    expected_version: int | None = None,
 ) -> ProductOut:
     async with r.sessions.begin() as session:
-        await authorize(session, p, "catalog", lock=True)
+        shop = await scope(session, p, shop_id, "catalog", write=True)
+        if shop and shop.status != "active" and (product_id is None or data.active):
+            raise CommerceError("SHOP_SUSPENDED", "暂停经营期间只允许将商品下架。", 409)
         if await session.get(Category, data.category_id) is None:
             raise missing()
         if product_id is None:
-            product = Product(**data.model_dump())
+            product = Product(**data.model_dump(), **({"shop_id": shop_id} if shop_id else {}))
             session.add(product)
         else:
             existing = await session.scalar(
                 select(Product).where(Product.id == product_id).with_for_update()
             )
-            if existing is None:
+            if existing is None or (shop_id is not None and existing.shop_id != shop_id):
                 raise missing()
+            if shop_id is not None and existing.version != expected_version:
+                raise CommerceError("VERSION_CONFLICT", "商品已变化，请刷新。", 409)
+            if (
+                shop
+                and shop.status != "active"
+                and any(
+                    getattr(existing, field) != getattr(data, field)
+                    for field in ("title", "brand", "description", "category_id")
+                )
+            ):
+                raise CommerceError("SHOP_SUSPENDED", "暂停经营期间只允许将商品下架。", 409)
             product = existing
             for key, value in data.model_dump().items():
                 setattr(product, key, value)
@@ -203,6 +238,8 @@ async def save_product(
         session.add(
             Audit(
                 actor_id=p.id,
+                actor_kind=p.kind,
+                shop_id=product.shop_id,
                 action="product.save",
                 resource_id=product.id,
                 detail=f"商品版本 {product.version}",
@@ -212,14 +249,21 @@ async def save_product(
 
 
 async def save_sku(
-    r: Resources, p: Principal, product_id: UUID, data: SKUIn, sku_id: UUID | None = None
+    r: Resources,
+    p: Principal,
+    product_id: UUID,
+    data: SKUIn,
+    sku_id: UUID | None = None,
+    *,
+    shop_id: UUID | None = None,
+    expected_version: int | None = None,
 ) -> SKUOut:
     async with r.sessions.begin() as session:
-        await authorize(session, p, "catalog", lock=True)
+        await scope(session, p, shop_id, "catalog", write=True, catalog=shop_id is not None)
         product = await session.scalar(
             select(Product).where(Product.id == product_id).with_for_update()
         )
-        if product is None:
+        if product is None or (shop_id is not None and product.shop_id != shop_id):
             raise missing()
         if sku_id is None:
             sku = SKU(product_id=product.id, **data.model_dump())
@@ -233,6 +277,8 @@ async def save_sku(
             )
             if existing is None:
                 raise missing()
+            if shop_id is not None and existing.version != expected_version:
+                raise CommerceError("VERSION_CONFLICT", "规格已变化，请刷新。", 409)
             sku = existing
             for key, value in data.model_dump().items():
                 setattr(sku, key, value)
@@ -242,6 +288,8 @@ async def save_sku(
         session.add(
             Audit(
                 actor_id=p.id,
+                actor_kind=p.kind,
+                shop_id=product.shop_id,
                 action="sku.save",
                 resource_id=sku.id,
                 detail=f"SKU 版本 {sku.version}",
@@ -252,11 +300,21 @@ async def save_sku(
 
 
 async def adjust_stock(
-    r: Resources, p: Principal, sku_id: UUID, data: StockAdjustment, key: str
+    r: Resources,
+    p: Principal,
+    sku_id: UUID,
+    data: StockAdjustment,
+    key: str,
+    *,
+    shop_id: UUID | None = None,
 ) -> StockOut:
     fingerprint = hashlib.sha256(f"{sku_id}:{data.model_dump_json()}".encode()).hexdigest()
     async with r.sessions.begin() as session:
-        await authorize(session, p, "catalog", lock=True)
+        await scope(session, p, shop_id, "catalog", write=True, catalog=shop_id is not None)
+        if shop_id is not None and not await session.scalar(
+            select(SKU.id).join(Product).where(SKU.id == sku_id, Product.shop_id == shop_id)
+        ):
+            raise missing()
         stock = await session.scalar(select(Stock).where(Stock.sku_id == sku_id).with_for_update())
         if stock is None:
             raise missing()
@@ -292,7 +350,12 @@ async def adjust_stock(
                     result_id=stock.id,
                 ),
                 Audit(
-                    actor_id=p.id, action="inventory.adjust", resource_id=sku_id, detail=data.reason
+                    actor_id=p.id,
+                    actor_kind=p.kind,
+                    shop_id=shop_id,
+                    action="inventory.adjust",
+                    resource_id=sku_id,
+                    detail=data.reason,
                 ),
             ]
         )

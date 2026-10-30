@@ -15,6 +15,7 @@ const state = Type.Object({
   memory_generation: Type.Integer(),
   user_id: Type.String(),
   conversation_id: Type.String(),
+  shop_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 });
 
 type ToolTrace = {
@@ -112,7 +113,8 @@ export class BackendClient {
       throw new HarnessError("SUPPORT_EXPIRED");
     if (
       raw.user_id !== this.request.user_id ||
-      raw.conversation_id !== this.request.conversation_id
+      raw.conversation_id !== this.request.conversation_id ||
+      (raw.shop_id ?? null) !== (this.request.shop_id ?? null)
     )
       throw new HarnessError("SUPPORT_INVALID_IDENTITY");
     if (raw.memory_generation !== this.request.memory_generation)

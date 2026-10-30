@@ -96,7 +96,7 @@ export async function createSupportRuntime() {
         const finalSchema = Type.Pick(replySchema, ["text", "product_ids"]);
         const tools = [
           ...commerceTools(client),
-          guideTool,
+          ...(request.shop_id ? [] : [guideTool]),
           {
             name: "commerce_respond",
             label: "提交最终回复和选中的商品",
@@ -155,6 +155,7 @@ export async function createSupportRuntime() {
             new Set(tools.map((tool) => tool.name)),
             (...args) => summaryStream(...args),
           ),
+          Boolean(request.shop_id),
         );
         if (loader.getExtensions().errors.length)
           throw new HarnessError("SUPPORT_EXTENSION_FAILED");
