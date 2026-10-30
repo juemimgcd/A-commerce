@@ -96,7 +96,7 @@ class CatalogResponseCacheMiddleware:
         # 仅服务端作用域标志，不能由客户端 header 伪造；未命中时避免重复扣额度。
         request.state.catalog_entry_limited = True
         digest = hashlib.sha256(path.encode() + b"?" + scope["query_string"]).hexdigest()
-        source = "primary"
+        source = "replica" if r.catalog_read_sessions is not None else "primary"
         base_key = f"catalog:http:v1:{source}:{digest}"
         key = base_key
         available = True

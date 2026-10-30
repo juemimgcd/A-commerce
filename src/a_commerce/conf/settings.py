@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # 使用可直接跨进程传递的 JSON 文本，API 与 worker 读取同一份商家配置。
     shop_config: str = "{}"
     database_url: SecretStr
+    # 不配置时为单机模式；配置后副本故障不回退主库。
+    catalog_read_database_url: SecretStr | None = None
+    catalog_read_pool_size: int = Field(default=5, ge=1, le=30)
     redis_url: SecretStr
     # 单独的 Redis 进程，不与 allkeys-lru 商品缓存共用内存淘汰策略。
     rate_redis_url: SecretStr = SecretStr("redis://127.0.0.1:56380/0")
