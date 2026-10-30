@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     merchant_id: str = "a-commerce"
     db_pool_size: int = Field(default=5, ge=1, le=30)
     db_pool_timeout: float = Field(default=3, gt=0, le=30)
-    redis_connections: int = Field(default=10, ge=1, le=100)
+    redis_connections: int = Field(default=50, ge=1, le=100)
     http_connections: int = Field(default=10, ge=1, le=100)
     session_hours: int = Field(default=168, ge=1, le=720)
     quote_seconds: int = Field(default=600, ge=30, le=3600)
@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     backlog_limit: int = Field(default=1000, ge=1)
     cache_seconds: int = Field(default=30, ge=1, le=300)
     # 逻辑过期后的最长可用时间；访问不会延长这两个期限。
+    cache_query_seconds: int = Field(default=15, ge=1, le=60)
+    cache_response_seconds: float = Field(default=1, ge=0, le=5)
     cache_stale_seconds: int = Field(default=120, ge=1, le=3600)
     cache_origin_concurrency: int = Field(default=4, ge=1, le=20)
     password_concurrency: int = Field(default=2, ge=1, le=8)

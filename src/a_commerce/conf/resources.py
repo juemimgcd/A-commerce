@@ -30,6 +30,8 @@ class Resources:
     password_slots: asyncio.Semaphore
     origin_slots: asyncio.Semaphore
     engine: AsyncEngine
+    catalog_generation_batch: asyncio.Task[str] | None = None
+    catalog_reads: set[asyncio.Task[str]] = field(default_factory=set)
     cache_refreshes: dict[str, asyncio.Task[None]] = field(default_factory=dict)
 
 
@@ -91,7 +93,7 @@ async def resources(settings: Settings) -> AsyncIterator[Resources]:
             try:
                 yield shared
             finally:
-                tasks = list(shared.cache_refreshes.values())
+                tasks = [*shared.cache_refreshes.values(), *shared.catalog_reads]
                 for task in tasks:
                     task.cancel()
                 await asyncio.gather(*tasks, return_exceptions=True)

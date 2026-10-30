@@ -56,6 +56,50 @@ from a_commerce.services.password_reset import ResetConfirm, ResetRequest
 router = APIRouter(prefix="/api/v1/customer", tags=["买家"])
 
 
+# 高频公开目录放在前面，减少路由器逐项匹配；完整路径仍区分详情与媒体。
+@router.get("/categories", response_model=list[CategoryOut])
+async def categories(r: R) -> list[CategoryOut]:
+    return await catalog.categories(r)
+
+
+@router.get("/products", response_model=ProductPage)
+async def products(
+    r: R,
+    q: Annotated[str, Query(max_length=80)] = "",
+    category: UUID | None = None,
+    cursor: UUID | None = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    min_price: Annotated[int, Query(ge=0)] = 0,
+    max_price: Annotated[int, Query(ge=0, le=100000000)] = 100000000,
+    brand: Annotated[str, Query(max_length=100)] = "",
+    attribute: Annotated[list[str] | None, Query(max_length=20)] = None,
+) -> ProductPage:
+    # 可重复使用 attribute=接口:USB-C；所有规格必须由同一有效 SKU 同时满足。
+    attributes: dict[str, str] = {}
+    for item in attribute or []:
+        name, separator, value = item.partition(":")
+        if (
+            not separator
+            or not name
+            or len(name) > 80
+            or not value
+            or len(value) > 200
+            or name in attributes
+        ):
+            raise CommerceError(
+                "INVALID_ATTRIBUTE", "属性应为不重复的名称:值，名称最长 80、值最长 200 字符。", 422
+            )
+        attributes[name] = value
+    return await catalog.list_products(
+        r, q, category, cursor, limit, min_price, max_price, brand, attributes
+    )
+
+
+@router.get("/products/{product_id}", response_model=ProductOut)
+async def product(product_id: UUID, r: R) -> ProductOut:
+    return await catalog.get_product(r, product_id)
+
+
 @router.get("/orders/{order_id}/shipment", response_model=shipping.ShipmentDetail)
 async def shipment(order_id: UUID, r: R, p: Customer) -> shipping.ShipmentDetail:
     return await shipping.get_shipment(r, p, order_id)
@@ -198,49 +242,6 @@ async def create_address(data: AddressIn, r: R, p: Customer) -> AddressOut:
 @router.put("/addresses/{address_id}", response_model=AddressOut)
 async def update_address(address_id: UUID, data: AddressIn, r: R, p: Customer) -> AddressOut:
     return await identity.save_address(r, p, data, address_id)
-
-
-@router.get("/categories", response_model=list[CategoryOut])
-async def categories(r: R) -> list[CategoryOut]:
-    return await catalog.categories(r)
-
-
-@router.get("/products", response_model=ProductPage)
-async def products(
-    r: R,
-    q: Annotated[str, Query(max_length=80)] = "",
-    category: UUID | None = None,
-    cursor: UUID | None = None,
-    limit: Annotated[int, Query(ge=1, le=50)] = 20,
-    min_price: Annotated[int, Query(ge=0)] = 0,
-    max_price: Annotated[int, Query(ge=0, le=100000000)] = 100000000,
-    brand: Annotated[str, Query(max_length=100)] = "",
-    attribute: Annotated[list[str] | None, Query(max_length=20)] = None,
-) -> ProductPage:
-    # 可重复使用 attribute=接口:USB-C；所有规格必须由同一有效 SKU 同时满足。
-    attributes: dict[str, str] = {}
-    for item in attribute or []:
-        name, separator, value = item.partition(":")
-        if (
-            not separator
-            or not name
-            or len(name) > 80
-            or not value
-            or len(value) > 200
-            or name in attributes
-        ):
-            raise CommerceError(
-                "INVALID_ATTRIBUTE", "属性应为不重复的名称:值，名称最长 80、值最长 200 字符。", 422
-            )
-        attributes[name] = value
-    return await catalog.list_products(
-        r, q, category, cursor, limit, min_price, max_price, brand, attributes
-    )
-
-
-@router.get("/products/{product_id}", response_model=ProductOut)
-async def product(product_id: UUID, r: R) -> ProductOut:
-    return await catalog.get_product(r, product_id)
 
 
 @router.get("/cart", response_model=list[CartOut])

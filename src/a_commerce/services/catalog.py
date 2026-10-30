@@ -1,6 +1,7 @@
 """目录、商品版本与库存调整；所有更新与下单遵守相同的加锁顺序。"""
 
 import hashlib
+import json
 from uuid import UUID
 
 from sqlalchemy import select
@@ -98,6 +99,16 @@ async def list_products(
 ) -> ProductPage:
     if max_price < min_price:
         raise CommerceError("PRICE_RANGE", "最高价格不能低于最低价格。", 422)
+    filtered_query = bool(
+        query
+        or cursor
+        or brand
+        or attributes
+        or min_price != 0
+        or max_price != 100000000
+        or category
+        or in_stock
+    )
 
     async def load() -> ProductPage:
         async with r.sessions() as session:
@@ -128,17 +139,26 @@ async def list_products(
             output = await product_outputs(session, products[:limit])
             return ProductPage(items=output, next_cursor=output[-1].id if more else None)
 
-    # 只缓存无搜索词的第一页，避免任意查询组合生成海量缓存 key。
-    if (
-        query
-        or cursor
-        or brand
-        or attributes
-        or in_stock
-        or min_price != 0
-        or max_price != 100000000
-    ):
-        return await load()
+    # 筛选与分页使用参数完整的短期查询缓存，不使用额外旧值窗口。
+    if filtered_query:
+        parameters = json.dumps(
+            [
+                query,
+                str(category) if category else None,
+                str(cursor) if cursor else None,
+                limit,
+                min_price,
+                max_price,
+                brand,
+                attributes or {},
+                in_stock,
+            ],
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        digest = hashlib.sha256(parameters.encode()).hexdigest()
+        source = "primary"
+        return await cached_catalog(r, f"catalog:query:v1:{source}:{digest}", load, query=True)
     key = f"catalog:v1:{category}:{limit}:{min_price}:{max_price}"
     return await cached_catalog(r, key, load)
 
