@@ -18,7 +18,8 @@ if [[ ! "$COMMERCE_IMAGE" =~ ^ghcr\.io/juemimgcd/a-commerce@sha256:[a-f0-9]{64}$
   exit 1
 fi
 export COMMERCE_IMAGE
-compose=(docker compose --env-file "$COMMERCE_ENV_FILE" -f deploy/compose.yaml -f deploy/compose.redis-sentinel.yaml)
+env_file="$COMMERCE_ENV_FILE"
+source deploy/compose-options.sh
 "${compose[@]}" config --quiet
 # 镜像下载失败时不停止正在运行的应用。
 "${compose[@]}" pull

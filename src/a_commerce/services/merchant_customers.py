@@ -42,10 +42,13 @@ async def members(
         by_user[order.user_id].append(order)
     begin = as_of - timedelta(days=data.window_days)
     recent = {o.id: o for o in orders if o.paid_at is not None and o.paid_at >= begin}
+    recent_ids = select(Order.id).where(
+        Order.shop_id == shop_id, Order.paid_at >= begin, Order.paid_at <= as_of
+    )
     unknown = set(
         await session.scalars(
             select(Refund.order_id).where(
-                Refund.order_id.in_(recent), Refund.shipping_fen.is_(None)
+                Refund.order_id.in_(recent_ids), Refund.shipping_fen.is_(None)
             )
         )
     )
@@ -53,7 +56,7 @@ async def members(
     for oid, amount in await session.execute(
         select(Refund.order_id, RefundItem.amount_fen)
         .join(RefundItem)
-        .where(Refund.order_id.in_(recent), Refund.status == "succeeded")
+        .where(Refund.order_id.in_(recent_ids), Refund.status == "succeeded")
     ):
         refund_by_order[oid] += amount
     categories: dict[UUID, set[UUID]] = defaultdict(set)

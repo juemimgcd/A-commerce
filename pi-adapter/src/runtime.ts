@@ -210,7 +210,6 @@ export async function createSupportRuntime() {
           if (
             !finalReply &&
             !extensionFailed &&
-            !metrics.limited &&
             metrics.turns < config.maxTurns &&
             last?.role === "assistant" &&
             last.stopReason === "stop"

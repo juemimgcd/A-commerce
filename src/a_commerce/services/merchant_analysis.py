@@ -57,6 +57,11 @@ async def lines(
     start: datetime,
     end: datetime,
 ) -> list[dict[str, object]]:
+    # Keep order membership in SQL: expanding UUIDs into bind parameters hits
+    # asyncpg's argument limit on busy shops, even when the response is paginated.
+    order_ids = select(Order.id).where(
+        Order.shop_id == shop_id, Order.paid_at >= start, Order.paid_at < end
+    )
     orders = list(
         await session.scalars(
             select(Order)
@@ -75,7 +80,7 @@ async def lines(
         await session.scalars(
             select(OrderItem)
             .where(
-                OrderItem.order_id.in_(by_order),
+                OrderItem.order_id.in_(order_ids),
             )
             .order_by(OrderItem.id)
         )
@@ -85,14 +90,14 @@ async def lines(
         for i, a in await session.execute(
             select(RefundItem.order_item_id, func.sum(RefundItem.amount_fen))
             .join(Refund)
-            .where(Refund.order_id.in_(by_order), Refund.status == "succeeded")
+            .where(Refund.order_id.in_(order_ids), Refund.status == "succeeded")
             .group_by(RefundItem.order_item_id)
         )
     }
     incomplete = set(
         await session.scalars(
             select(Refund.order_id).where(
-                Refund.order_id.in_(by_order),
+                Refund.order_id.in_(order_ids),
                 Refund.shipping_fen.is_(None),
             )
         )
@@ -102,7 +107,7 @@ async def lines(
     for ident, quantity, resell in await session.execute(
         select(ReturnItem.order_item_id, ReturnItem.quantity, ReturnRequest.resellable)
         .join(ReturnRequest)
-        .where(ReturnRequest.order_id.in_(by_order), ReturnRequest.status == "inspected")
+        .where(ReturnRequest.order_id.in_(order_ids), ReturnRequest.status == "inspected")
     ):
         returned[ident] = returned.get(ident, 0) + quantity
         if resell:
@@ -111,7 +116,7 @@ async def lines(
     for expense in await session.scalars(
         select(OrderExpense)
         .where(
-            OrderExpense.order_id.in_(by_order),
+            OrderExpense.order_id.in_(order_ids),
             OrderExpense.shop_id == shop_id,
         )
         .order_by(OrderExpense.revision)

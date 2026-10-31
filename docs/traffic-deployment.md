@@ -140,3 +140,7 @@ bash deploy/roll-api.sh
 本轮没有创建/修改测试文件、测试夹具或自动化断言；以上是实际容器与 HTTP 操作观察，不是自动化回归套件。未验证万级用户容量、长稳、跨主机切换、限流 Redis 高可用/掉电恢复、真实支付或 TLS 公网部署。单实例突发故障在网关探测窗口内仍可能产生短暂 5xx，写请求必须保留幂等恢复策略。
 
 依据：[HAProxy 3.2 配置手册](https://docs.haproxy.org/3.2/configuration.html)、[Redis Lua 执行语义](https://redis.io/docs/latest/develop/programmability/eval-intro/)、[Redis TIME](https://redis.io/docs/latest/commands/time/)。
+
+滚动与维护发布脚本从现有 API 容器的 Compose 标签读取已部署的覆盖文件，
+在当前 Release 中继续加载 web、support、monitoring 和 HA 配置。缺少或不认识的
+覆盖文件会在摘流之前报错，避免重建 API 时静默丢失配置。
