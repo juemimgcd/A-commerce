@@ -6556,6 +6556,74 @@
         }
       }
     },
+    "/api/v1/merchant/shops/{shop_id}/overview": {
+      "get": {
+        "tags": [
+          "店铺与商家经营"
+        ],
+        "summary": "Overview",
+        "operationId": "overview_api_v1_merchant_shops__shop_id__overview_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shop_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Shop Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Start"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "End"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MerchantOverview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/merchant/shops/{shop_id}/conversations": {
       "get": {
         "tags": [
@@ -13799,6 +13867,64 @@
         ],
         "title": "MerchantListTool"
       },
+      "MerchantOverview": {
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "start": {
+            "type": "string",
+            "format": "date",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date",
+            "title": "End"
+          },
+          "previous_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Previous Start"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone",
+            "default": "Asia/Shanghai"
+          },
+          "current": {
+            "$ref": "#/components/schemas/SalesTotals"
+          },
+          "previous": {
+            "$ref": "#/components/schemas/SalesTotals"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/SalesDay"
+            },
+            "type": "array",
+            "title": "Days"
+          },
+          "todos": {
+            "$ref": "#/components/schemas/MerchantTodos"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "as_of",
+          "start",
+          "end",
+          "previous_start",
+          "current",
+          "previous",
+          "days",
+          "todos"
+        ],
+        "title": "MerchantOverview"
+      },
       "MerchantProductIn": {
         "properties": {
           "category_id": {
@@ -14077,6 +14203,40 @@
           "price_fen"
         ],
         "title": "MerchantSKUIn"
+      },
+      "MerchantTodos": {
+        "properties": {
+          "unshipped": {
+            "type": "integer",
+            "title": "Unshipped"
+          },
+          "returns": {
+            "type": "integer",
+            "title": "Returns"
+          },
+          "low_stock": {
+            "type": "integer",
+            "title": "Low Stock"
+          },
+          "unconfigured_stock": {
+            "type": "integer",
+            "title": "Unconfigured Stock"
+          },
+          "restock_drafts": {
+            "type": "integer",
+            "title": "Restock Drafts"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "unshipped",
+          "returns",
+          "low_stock",
+          "unconfigured_stock",
+          "restock_drafts"
+        ],
+        "title": "MerchantTodos"
       },
       "MessageIn": {
         "properties": {
@@ -16918,6 +17078,82 @@
           "available"
         ],
         "title": "SKUOut"
+      },
+      "SalesDay": {
+        "properties": {
+          "net_goods_fen": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Goods Fen",
+            "default": 0
+          },
+          "paid_orders": {
+            "type": "integer",
+            "title": "Paid Orders",
+            "default": 0
+          },
+          "new_buyers": {
+            "type": "integer",
+            "title": "New Buyers",
+            "default": 0
+          },
+          "refunds_fen": {
+            "type": "integer",
+            "title": "Refunds Fen",
+            "default": 0
+          },
+          "day": {
+            "type": "string",
+            "format": "date",
+            "title": "Day"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "day"
+        ],
+        "title": "SalesDay"
+      },
+      "SalesTotals": {
+        "properties": {
+          "net_goods_fen": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Goods Fen",
+            "default": 0
+          },
+          "paid_orders": {
+            "type": "integer",
+            "title": "Paid Orders",
+            "default": 0
+          },
+          "new_buyers": {
+            "type": "integer",
+            "title": "New Buyers",
+            "default": 0
+          },
+          "refunds_fen": {
+            "type": "integer",
+            "title": "Refunds Fen",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SalesTotals"
       },
       "SearchTool": {
         "properties": {

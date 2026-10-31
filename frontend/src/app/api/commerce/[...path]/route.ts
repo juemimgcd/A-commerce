@@ -11,7 +11,7 @@ const rules: Record<string, RegExp[]> = {
     new RegExp(`^customer/eligible-flash-sales(/${uuid})?$`),
     /^(merchant|admin)\/shops$/,
     new RegExp(`^admin/shops/${uuid}/(products|reports)$`),
-    new RegExp(`^merchant/shops/${uuid}/(products|orders|returns|reports|conversations)$`),
+    new RegExp(`^merchant/shops/${uuid}/(products|orders|returns|reports|overview|conversations)$`),
     new RegExp(
       `^merchant/shops/${uuid}/(orders/${uuid}|returns/${uuid}|products/${uuid}/media|conversations/${uuid}/messages)$`,
     ),

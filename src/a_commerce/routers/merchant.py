@@ -41,6 +41,7 @@ from a_commerce.services import (
     fulfillment,
     media,
     merchant,
+    merchant_overview,
     merchant_reporting,
     orders,
     shops,
@@ -260,6 +261,13 @@ async def reports(
     shop_id: UUID, start: date, end: date, r: R, p: Customer, product_id: UUID | None = None
 ) -> merchant_reporting.MerchantReport:
     return await merchant_reporting.report(r, p, shop_id, start, end, product_id)
+
+
+@router.get("/merchant/shops/{shop_id}/overview", response_model=merchant_overview.MerchantOverview)
+async def overview(
+    shop_id: UUID, start: date, end: date, r: R, p: Customer
+) -> merchant_overview.MerchantOverview:
+    return await merchant_overview.overview(r, p, shop_id, start, end)
 
 
 @router.get("/merchant/shops/{shop_id}/conversations", response_model=list[ConversationOut])

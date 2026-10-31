@@ -1717,6 +1717,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/merchant/shops/{shop_id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Overview */
+        get: operations["overview_api_v1_merchant_shops__shop_id__overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/merchant/shops/{shop_id}/conversations": {
         parameters: {
             query?: never;
@@ -3956,6 +3973,39 @@ export interface components {
              */
             limit: number;
         };
+        /** MerchantOverview */
+        MerchantOverview: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Previous Start
+             * Format: date
+             */
+            previous_start: string;
+            /**
+             * Timezone
+             * @default Asia/Shanghai
+             */
+            timezone: string;
+            current: components["schemas"]["SalesTotals"];
+            previous: components["schemas"]["SalesTotals"];
+            /** Days */
+            days: components["schemas"]["SalesDay"][];
+            todos: components["schemas"]["MerchantTodos"];
+        };
         /** MerchantProductIn */
         MerchantProductIn: {
             /**
@@ -4082,6 +4132,19 @@ export interface components {
             active: boolean;
             /** Expected Version */
             expected_version?: number | null;
+        };
+        /** MerchantTodos */
+        MerchantTodos: {
+            /** Unshipped */
+            unshipped: number;
+            /** Returns */
+            returns: number;
+            /** Low Stock */
+            low_stock: number;
+            /** Unconfigured Stock */
+            unconfigured_stock: number;
+            /** Restock Drafts */
+            restock_drafts: number;
         };
         /** MessageIn */
         MessageIn: {
@@ -5305,6 +5368,57 @@ export interface components {
             version: number;
             /** Available */
             available: number;
+        };
+        /** SalesDay */
+        SalesDay: {
+            /**
+             * Net Goods Fen
+             * @default 0
+             */
+            net_goods_fen: number | null;
+            /**
+             * Paid Orders
+             * @default 0
+             */
+            paid_orders: number;
+            /**
+             * New Buyers
+             * @default 0
+             */
+            new_buyers: number;
+            /**
+             * Refunds Fen
+             * @default 0
+             */
+            refunds_fen: number;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+        };
+        /** SalesTotals */
+        SalesTotals: {
+            /**
+             * Net Goods Fen
+             * @default 0
+             */
+            net_goods_fen: number | null;
+            /**
+             * Paid Orders
+             * @default 0
+             */
+            paid_orders: number;
+            /**
+             * New Buyers
+             * @default 0
+             */
+            new_buyers: number;
+            /**
+             * Refunds Fen
+             * @default 0
+             */
+            refunds_fen: number;
         };
         /** SearchTool */
         SearchTool: {
@@ -9540,6 +9654,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MerchantReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    overview_api_v1_merchant_shops__shop_id__overview_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+            };
+            header?: never;
+            path: {
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MerchantOverview"];
                 };
             };
             /** @description Validation Error */
