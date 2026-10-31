@@ -6,7 +6,7 @@ from sqlalchemy import Connection, pool
 
 from a_commerce.conf.database import database_engine
 from a_commerce.conf.settings import Settings
-from a_commerce.models import entities, support  # noqa: F401
+from a_commerce.models import entities, merchant_ops, support  # noqa: F401
 from a_commerce.models.base import Base
 from alembic import context
 

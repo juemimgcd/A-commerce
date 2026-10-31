@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import Field, model_validator
 
 from a_commerce.schemas.api import Schema
+from a_commerce.schemas.merchant_ops import PeriodIn, PromotionIn, RestockIn, SegmentIn
 
 MemoryKind = Literal["category", "brand", "budget", "attribute", "service"]
 
@@ -153,6 +154,48 @@ class MerchantListTool(Schema):
     limit: int = Field(default=10, ge=1, le=20)
 
 
+class DiagnosticTool(PeriodIn):
+    tool: Literal["get_sku_performance", "get_business_diagnostics"]
+
+
+class InventoryTool(Schema):
+    tool: Literal["get_inventory_risks", "calculate_restock_suggestion"]
+    sku_id: UUID | None = None
+    offset: int = Field(default=0, ge=0, le=1000000)
+    limit: int = Field(default=20, ge=1, le=20)
+
+
+class RestockDraftTool(RestockIn):
+    tool: Literal["create_restock_draft"]
+
+
+class BusinessResourceTool(Schema):
+    tool: Literal[
+        "get_report_evidence",
+        "get_saved_business_report",
+        "get_restock_task",
+        "validate_promotion_draft",
+        "get_promotion_report",
+    ]
+    resource_id: UUID
+    offset: int = Field(default=0, ge=0, le=1000000)
+    cursor: UUID | None = None
+    limit: int = Field(default=20, ge=1, le=20)
+
+
+class SegmentTool(SegmentIn):
+    tool: Literal["preview_customer_segment", "save_customer_segment_snapshot"]
+
+
+class RepeatTool(PeriodIn):
+    tool: Literal["get_repeat_purchase_report"]
+    days: int = Field(default=30, ge=1, le=366)
+
+
+class PromotionTool(PromotionIn):
+    tool: Literal["simulate_promotion", "create_promotion_draft"]
+
+
 SupportTool = Annotated[
     SearchTool
     | ProductTool
@@ -161,7 +204,14 @@ SupportTool = Annotated[
     | SimpleTool
     | ProposeMemoryTool
     | MerchantReportTool
-    | MerchantListTool,
+    | MerchantListTool
+    | DiagnosticTool
+    | InventoryTool
+    | RestockDraftTool
+    | BusinessResourceTool
+    | SegmentTool
+    | RepeatTool
+    | PromotionTool,
     Field(discriminator="tool"),
 ]
 

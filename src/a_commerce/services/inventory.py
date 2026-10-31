@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from a_commerce.models.entities import Order, OrderItem, Stock, StockMovement
 from a_commerce.services.flash_sales import lock_sales
+from a_commerce.services.merchant_promotions import move_claim
 
 
 async def move_order_stock(
@@ -41,8 +42,8 @@ async def move_order_stock(
         stock.on_hand += hand
         stock.reserved += reserved
         stock.allocated += allocated
-        if item.flash_sale_id and action in {"release_reserved", "release_allocated"}:
-            sales[item.flash_sale_id].claimed -= q
+        if item.flash_sale_id:
+            await move_claim(session, sales[item.flash_sale_id], item, action)
         session.add(
             StockMovement(
                 reference=f"{action}:{order.id}:{item.sku_id}",

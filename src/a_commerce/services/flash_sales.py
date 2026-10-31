@@ -2,13 +2,14 @@
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from a_commerce.conf.resources import Resources
 from a_commerce.errors import CommerceError, missing
 from a_commerce.models.base import now
 from a_commerce.models.entities import SKU, Audit, FlashSale, Media, Product, Shop, Stock
+from a_commerce.models.merchant_ops import CustomerSegment, MerchantPromotion, SegmentMember
 from a_commerce.schemas.flash_sales import FlashSaleIn, FlashSaleOut, FlashSalePage, FlashSaleUpdate
 from a_commerce.services.identity import Principal, authorize
 
@@ -69,6 +70,30 @@ async def sale_output(session: AsyncSession, rows: list[FlashSale]) -> list[Flas
     for row in rows:
         sku, product, stock, media_id = catalog[row.sku_id]
         available = min(row.stock - row.claimed, stock.on_hand - stock.reserved - stock.allocated)
+        promotion = (
+            await session.get(MerchantPromotion, row.merchant_promotion_id)
+            if row.merchant_promotion_id
+            else None
+        )
+        promotion_invalid = False
+        if promotion:
+            discount = promotion.reference_price_fen - promotion.price_fen
+            available = min(
+                available,
+                (promotion.budget_fen - promotion.reserved_fen - promotion.consumed_fen)
+                // discount,
+            )
+            segment = (
+                await session.get(CustomerSegment, promotion.segment_id)
+                if promotion.segment_id
+                else None
+            )
+            promotion_invalid = (
+                promotion.status != "published"
+                or promotion.sku_version != sku.version
+                or promotion.cost_version != sku.cost_version
+                or (promotion.segment_id is not None and (segment is None or not segment.active))
+            )
         status = (
             "disabled"
             if not row.active
@@ -78,6 +103,7 @@ async def sale_output(session: AsyncSession, rows: list[FlashSale]) -> list[Flas
                 or not product.active
                 or shops[product.shop_id].status != "active"
                 or row.price_fen > sku.price_fen
+                or promotion_invalid
             )
             else "ended"
             if current >= row.ends_at
@@ -110,16 +136,22 @@ async def list_sales(
     cursor: UUID | None,
     limit: int,
     p: Principal | None = None,
+    buyer: Principal | None = None,
 ) -> FlashSalePage:
     async with r.sessions() as session:
         query = select(FlashSale)
         if p is not None:
             await authorize(session, p, "catalog")
         else:
+            if buyer:
+                await authorize(session, buyer)
             query = (
                 query.join(SKU, SKU.id == FlashSale.sku_id)
                 .join(Product)
                 .join(Shop)
+                .outerjoin(
+                    MerchantPromotion, MerchantPromotion.id == FlashSale.merchant_promotion_id
+                )
                 .where(
                     FlashSale.active.is_(True),
                     FlashSale.ends_at > now(),
@@ -127,10 +159,24 @@ async def list_sales(
                     FlashSale.price_fen <= SKU.price_fen,
                     Product.active.is_(True),
                     Shop.status == "active",
+                    or_(
+                        MerchantPromotion.id.is_(None),
+                        MerchantPromotion.segment_id.is_(None),
+                        select(SegmentMember.id)
+                        .where(
+                            SegmentMember.segment_id == MerchantPromotion.segment_id,
+                            SegmentMember.user_id == buyer.id,
+                        )
+                        .exists()
+                        if buyer
+                        else MerchantPromotion.segment_id.is_(None),
+                    ),
                 )
             )
         if cursor:
             query = query.where(FlashSale.id > cursor)
+        if p is None and not r.settings.merchant_promotions_enabled:
+            query = query.where(FlashSale.merchant_promotion_id.is_(None))
         rows = list((await session.scalars(query.order_by(FlashSale.id).limit(limit + 1))).all())
         return FlashSalePage(
             items=await sale_output(session, rows[:limit]),
@@ -138,11 +184,29 @@ async def list_sales(
         )
 
 
-async def get_sale(r: Resources, sale_id: UUID) -> FlashSaleOut:
+async def get_sale(r: Resources, sale_id: UUID, buyer: Principal | None = None) -> FlashSaleOut:
     async with r.sessions() as session:
+        if buyer:
+            await authorize(session, buyer)
         sale = await session.get(FlashSale, sale_id)
         if sale is None or not sale.active:
             raise missing()
+        if sale.merchant_promotion_id:
+            if not r.settings.merchant_promotions_enabled:
+                raise missing()
+            promotion = await session.get(MerchantPromotion, sale.merchant_promotion_id)
+            if promotion is None:
+                raise missing()
+            if promotion.segment_id and (
+                buyer is None
+                or not await session.scalar(
+                    select(SegmentMember.id).where(
+                        SegmentMember.segment_id == promotion.segment_id,
+                        SegmentMember.user_id == buyer.id,
+                    )
+                )
+            ):
+                raise missing()
         output = (await sale_output(session, [sale]))[0]
         if output.status == "unavailable":
             raise missing()
@@ -175,6 +239,12 @@ async def save_sale(
         if sale_id:
             if sale is None:
                 raise missing()
+            if sale.merchant_promotion_id:
+                raise CommerceError(
+                    "MERCHANT_PROMOTION_PROTECTED",
+                    "商家活动不能通过秒杀编辑绕过批准版本，请使用专用停用入口。",
+                    409,
+                )
             if sale.sku_id != sku.id:
                 raise CommerceError("FLASH_SALE_SKU_FIXED", "已创建活动不能更换规格，请新增活动。")
             if not isinstance(data, FlashSaleUpdate) or sale.version != data.expected_version:

@@ -42,6 +42,7 @@ from a_commerce.services import (
     identity,
     management,
     merchant,
+    merchant_agent,
     merchant_reporting,
     orders,
     shipping,
@@ -461,7 +462,7 @@ async def call_tool(r: Resources, run_id: UUID, token: str, data: SupportTool) -
         shop_id = bound.shop_id
     if shop_id is not None:
         return await call_merchant_tool(r, p, run_id, shop_id, data)
-    if isinstance(data, (MerchantReportTool, MerchantListTool)):
+    if isinstance(data, (MerchantReportTool, MerchantListTool, *merchant_agent.OPS_TOOLS)):
         raise missing()
     result: dict[str, object]
     links: list[dict[str, str]] = []
@@ -655,9 +656,17 @@ async def call_merchant_tool(
     r: Resources, p: Principal, run_id: UUID, shop_id: UUID, data: SupportTool
 ) -> dict[str, object]:
     result: dict[str, object]
-    if isinstance(data, MerchantReportTool):
+    links = [{"title": "打开本店工作台", "href": f"/merchant?shop={shop_id}"}]
+    if isinstance(data, merchant_agent.OPS_TOOLS):
+        result, links = await merchant_agent.call(r, p, shop_id, run_id, data)
+    elif isinstance(data, MerchantReportTool):
         row = await merchant_reporting.report(r, p, shop_id, data.start, data.end, data.product_id)
         result = row.model_dump(mode="json", exclude={"products"})
+        result["scopes"] = {
+            "cash": "shop",
+            "customers": "shop",
+            "performance": "product" if data.product_id else "shop",
+        }
         if data.tool == "get_shop_customer_statistics":
             result = {
                 "customers": row.customers.model_dump(mode="json"),
@@ -697,7 +706,9 @@ async def call_merchant_tool(
                 else None,
             }
     else:
-        raise CommerceError("MERCHANT_READ_ONLY", "商家 Agent 只允许注册的本店查询工具。", 403)
+        raise CommerceError(
+            "MERCHANT_TOOL_DENIED", "商家 Agent 只允许注册的本店查询和内部草稿工具。", 403
+        )
     async with r.sessions.begin() as session:
         await scope(session, p, shop_id, "audit")
         run = await session.scalar(
@@ -711,8 +722,10 @@ async def call_merchant_tool(
         ):
             raise CommerceError("SUPPORT_EXPIRED", "商家运行已结束。", 401)
         session.add(audit(p, shop_id, "merchant.agent_tool", run_id, f"tool={data.tool}"))
-        run.links = [{"title": "打开本店工作台", "href": f"/merchant?shop={shop_id}"}]
+        merged = {link["href"]: link for link in run.links}
+        merged.update({link["href"]: link for link in links})
+        run.links = list(merged.values())
     return {
         "data": result,
-        "links": [{"title": "打开本店工作台", "href": f"/merchant?shop={shop_id}"}],
+        "links": links,
     }

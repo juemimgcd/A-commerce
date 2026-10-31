@@ -620,6 +620,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/customer/eligible-flash-sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Eligible Sales */
+        get: operations["eligible_sales_api_v1_customer_eligible_flash_sales_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customer/eligible-flash-sales/{sale_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Eligible Sale */
+        get: operations["eligible_sale_api_v1_customer_eligible_flash_sales__sale_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customer/flash-sales": {
         parameters: {
             query?: never;
@@ -1736,6 +1770,419 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/merchant/shops/{shop_id}/operations/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Capabilities */
+        get: operations["capabilities_api_v1_merchant_shops__shop_id__operations_capabilities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/diagnostics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reports */
+        get: operations["reports_api_v1_merchant_shops__shop_id__diagnostics_get"];
+        put?: never;
+        /** Diagnose */
+        post: operations["diagnose_api_v1_merchant_shops__shop_id__diagnostics_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/diagnostics/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Report */
+        get: operations["report_api_v1_merchant_shops__shop_id__diagnostics__report_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/diagnostics/{report_id}/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Evidence */
+        get: operations["evidence_api_v1_merchant_shops__shop_id__diagnostics__report_id__evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/orders/{order_id}/expenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Expenses */
+        get: operations["expenses_api_v1_merchant_shops__shop_id__orders__order_id__expenses_get"];
+        put?: never;
+        /** Expense */
+        post: operations["expense_api_v1_merchant_shops__shop_id__orders__order_id__expenses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/inventory-risks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inventory */
+        get: operations["inventory_api_v1_merchant_shops__shop_id__inventory_risks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/restock-rules/{sku_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Rule */
+        put: operations["rule_api_v1_merchant_shops__shop_id__restock_rules__sku_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/restock-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tasks */
+        get: operations["tasks_api_v1_merchant_shops__shop_id__restock_tasks_get"];
+        put?: never;
+        /** Draft Restock */
+        post: operations["draft_restock_api_v1_merchant_shops__shop_id__restock_tasks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/restock-tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Task */
+        get: operations["task_api_v1_merchant_shops__shop_id__restock_tasks__task_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/restock-tasks/{task_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm */
+        post: operations["confirm_api_v1_merchant_shops__shop_id__restock_tasks__task_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/restock-tasks/{task_id}/receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receive */
+        post: operations["receive_api_v1_merchant_shops__shop_id__restock_tasks__task_id__receive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/restock-tasks/{task_id}/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Progress */
+        post: operations["progress_api_v1_merchant_shops__shop_id__restock_tasks__task_id___action__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/segments/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview */
+        post: operations["preview_api_v1_merchant_shops__shop_id__segments_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/segments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Segments */
+        get: operations["segments_api_v1_merchant_shops__shop_id__segments_get"];
+        put?: never;
+        /** Save Segment */
+        post: operations["save_segment_api_v1_merchant_shops__shop_id__segments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/segments/{segment_id}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deactivate */
+        post: operations["deactivate_api_v1_merchant_shops__shop_id__segments__segment_id__deactivate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/repeat-purchase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Repeat */
+        post: operations["repeat_api_v1_merchant_shops__shop_id__repeat_purchase_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/promotions/simulate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Simulate */
+        post: operations["simulate_api_v1_merchant_shops__shop_id__promotions_simulate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/promotions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Promotions */
+        get: operations["promotions_api_v1_merchant_shops__shop_id__promotions_get"];
+        put?: never;
+        /** Draft Promotion */
+        post: operations["draft_promotion_api_v1_merchant_shops__shop_id__promotions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/promotions/{promotion_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Promotion */
+        get: operations["promotion_api_v1_merchant_shops__shop_id__promotions__promotion_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/promotions/{promotion_id}/validation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Validate */
+        get: operations["validate_api_v1_merchant_shops__shop_id__promotions__promotion_id__validation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/promotions/{promotion_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish */
+        post: operations["publish_api_v1_merchant_shops__shop_id__promotions__promotion_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/promotions/{promotion_id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop */
+        post: operations["stop_api_v1_merchant_shops__shop_id__promotions__promotion_id__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/merchant/shops/{shop_id}/promotions/{promotion_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Promotion Report */
+        get: operations["promotion_report_api_v1_merchant_shops__shop_id__promotions__promotion_id__report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/shops/{shop_id}/promotions/{promotion_id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Emergency Stop */
+        post: operations["emergency_stop_api_v1_admin_shops__shop_id__promotions__promotion_id__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/reconciliations": {
         parameters: {
             query?: never;
@@ -2600,6 +3047,31 @@ export interface components {
              */
             created_at: string;
         };
+        /** BusinessResourceTool */
+        BusinessResourceTool: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            tool: "get_report_evidence" | "get_saved_business_report" | "get_restock_task" | "validate_promotion_draft" | "get_promotion_report";
+            /**
+             * Resource Id
+             * Format: uuid
+             */
+            resource_id: string;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /** Cursor */
+            cursor?: string | null;
+            /**
+             * Limit
+             * @default 20
+             */
+            limit: number;
+        };
         /** CancelIn */
         CancelIn: {
             /** Expected Version */
@@ -2838,6 +3310,122 @@ export interface components {
             /** Paid Orders */
             paid_orders: number;
         };
+        /** DiagnosticTool */
+        DiagnosticTool: {
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Minimum Samples
+             * @default 5
+             */
+            minimum_samples: number;
+            /**
+             * Minimum Change Fen
+             * @default 1000
+             */
+            minimum_change_fen: number;
+            /**
+             * Change Percent
+             * @default 10
+             */
+            change_percent: number;
+            /**
+             * Ranking
+             * @default gross_profit_fen
+             * @enum {string}
+             */
+            ranking: "gross_profit_fen" | "paid_quantity" | "net_goods_fen" | "contribution_fen";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            tool: "get_sku_performance" | "get_business_diagnostics";
+        };
+        /** DiagnosticsOut */
+        DiagnosticsOut: {
+            /**
+             * Report Id
+             * Format: uuid
+             */
+            report_id: string;
+            /**
+             * Shop Id
+             * Format: uuid
+             */
+            shop_id: string;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /**
+             * Currency
+             * @default CNY
+             */
+            currency: string;
+            /**
+             * Timezone
+             * @default Asia/Shanghai
+             */
+            timezone: string;
+            /**
+             * Basis Version
+             * @default diagnostics-v1
+             */
+            basis_version: string;
+            /** Current */
+            current: components["schemas"]["SkuPerformance"][];
+            /** Previous */
+            previous: components["schemas"]["SkuPerformance"][];
+            /** Total Skus */
+            total_skus: number;
+            /** Next Offset */
+            next_offset: number | null;
+            /** Summary */
+            summary: {
+                [key: string]: number | null;
+            };
+            /** Anomalies */
+            anomalies: string[];
+            /** Limitations */
+            limitations: string[];
+            /** Breakdown */
+            breakdown: {
+                [key: string]: unknown;
+            };
+            /** Decomposition */
+            decomposition?: components["schemas"]["MerchantChangeOut"][];
+            /**
+             * Decomposition Total
+             * @default 0
+             */
+            decomposition_total: number;
+        };
+        /** EmergencyStopIn */
+        EmergencyStopIn: {
+            /** Expected Version */
+            expected_version: number;
+            /** Reason */
+            reason: string;
+        };
         /** EventOut */
         EventOut: {
             /**
@@ -2861,6 +3449,80 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** EvidenceOut */
+        EvidenceOut: {
+            /**
+             * Report Id
+             * Format: uuid
+             */
+            report_id: string;
+            /** Items */
+            items: {
+                [key: string]: unknown;
+            }[];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** ExpenseIn */
+        ExpenseIn: {
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "delivery" | "packaging" | "payment";
+            /**
+             * Quality
+             * @enum {string}
+             */
+            quality: "actual" | "estimated" | "unknown";
+            /** Amount Fen */
+            amount_fen?: number | null;
+            /**
+             * Complete
+             * @default false
+             */
+            complete: boolean;
+            /** Expected Revision */
+            expected_revision: number;
+            /** Note */
+            note: string;
+        };
+        /** ExpenseOut */
+        ExpenseOut: {
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "delivery" | "packaging" | "payment";
+            /**
+             * Quality
+             * @enum {string}
+             */
+            quality: "actual" | "estimated" | "unknown";
+            /** Amount Fen */
+            amount_fen?: number | null;
+            /**
+             * Complete
+             * @default false
+             */
+            complete: boolean;
+            /** Expected Revision */
+            expected_revision: number;
+            /** Note */
+            note: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /** Revision */
+            revision: number;
         };
         /** ExportIn */
         ExportIn: {
@@ -3143,6 +3805,26 @@ export interface components {
             /** Next Cursor */
             next_cursor: string | null;
         };
+        /** InventoryTool */
+        InventoryTool: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            tool: "get_inventory_risks" | "calculate_restock_suggestion";
+            /** Sku Id */
+            sku_id?: string | null;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /**
+             * Limit
+             * @default 20
+             */
+            limit: number;
+        };
         /** MediaOut */
         MediaOut: {
             /**
@@ -3214,6 +3896,50 @@ export interface components {
             memories: components["schemas"]["MemoryOut"][];
             /** Usage */
             usage: components["schemas"]["UsageOut"][];
+        };
+        /** MerchantChangeOut */
+        MerchantChangeOut: {
+            /** Dimension */
+            dimension: string;
+            /** Name */
+            name: string;
+            /** Metric */
+            metric: string;
+            /** Current Fen */
+            current_fen: number | null;
+            /** Previous Fen */
+            previous_fen: number | null;
+            /** Delta Fen */
+            delta_fen: number | null;
+        };
+        /** MerchantInventoryOut */
+        MerchantInventoryOut: {
+            /**
+             * Shop Id
+             * Format: uuid
+             */
+            shop_id: string;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /**
+             * Timezone
+             * @default Asia/Shanghai
+             */
+            timezone: string;
+            /**
+             * Basis Version
+             * @default restock-v1
+             */
+            basis_version: string;
+            /** Total */
+            total: number;
+            /** Items */
+            items: components["schemas"]["RiskOut"][];
+            /** Next Offset */
+            next_offset: number | null;
         };
         /** MerchantListTool */
         MerchantListTool: {
@@ -3429,6 +4155,27 @@ export interface components {
             /** Sequence */
             sequence: number;
         };
+        /** OperationLogOut */
+        OperationLogOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Action */
+            action: string;
+            /** Detail */
+            detail: string;
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Kind */
+            actor_kind: string | null;
+        };
         /** OperationOut */
         OperationOut: {
             /**
@@ -3617,6 +4364,40 @@ export interface components {
             /** Profit Line Count */
             profit_line_count: number;
         };
+        /** PeriodIn */
+        PeriodIn: {
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Minimum Samples
+             * @default 5
+             */
+            minimum_samples: number;
+            /**
+             * Minimum Change Fen
+             * @default 1000
+             */
+            minimum_change_fen: number;
+            /**
+             * Change Percent
+             * @default 10
+             */
+            change_percent: number;
+            /**
+             * Ranking
+             * @default gross_profit_fen
+             * @enum {string}
+             */
+            ranking: "gross_profit_fen" | "paid_quantity" | "net_goods_fen" | "contribution_fen";
+        };
         /** PreferenceIn */
         PreferenceIn: {
             /**
@@ -3740,6 +4521,173 @@ export interface components {
              */
             authenticated_at: string;
         };
+        /** PromotionIn */
+        PromotionIn: {
+            /**
+             * Sku Id
+             * Format: uuid
+             */
+            sku_id: string;
+            /** Segment Id */
+            segment_id?: string | null;
+            /** Price Fen */
+            price_fen: number;
+            /** Budget Fen */
+            budget_fen: number;
+            /** Quantity */
+            quantity: number;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Unit Expense Fen */
+            unit_expense_fen?: number | null;
+            /**
+             * Minimum Margin Fen
+             * @default 0
+             */
+            minimum_margin_fen: number;
+            /**
+             * Note
+             * @default 商家活动
+             */
+            note: string;
+        };
+        /** PromotionOut */
+        PromotionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Sku Id
+             * Format: uuid
+             */
+            sku_id: string;
+            /** Segment Id */
+            segment_id: string | null;
+            /** Version */
+            version: number;
+            /** Status */
+            status: string;
+            /** Price Fen */
+            price_fen: number;
+            /** Reference Price Fen */
+            reference_price_fen: number;
+            /** Cost Fen */
+            cost_fen: number | null;
+            /** Unit Expense Fen */
+            unit_expense_fen: number | null;
+            /** Minimum Margin Fen */
+            minimum_margin_fen: number;
+            /** Budget Fen */
+            budget_fen: number;
+            /** Reserved Fen */
+            reserved_fen: number;
+            /** Consumed Fen */
+            consumed_fen: number;
+            /** Quantity */
+            quantity: number;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Approved At */
+            approved_at: string | null;
+            /** Approved By */
+            approved_by: string | null;
+            /** Approval Digest */
+            approval_digest: string | null;
+            /** Note */
+            note: string;
+            /** Validation Issues */
+            validation_issues?: string[];
+            /** Phase */
+            readonly phase: string;
+        };
+        /** PromotionReportOut */
+        PromotionReportOut: {
+            promotion: components["schemas"]["PromotionOut"];
+            /** Flash Sale Id */
+            flash_sale_id: string | null;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Reserved Quantity */
+            reserved_quantity: number;
+            /** Consumed Quantity */
+            consumed_quantity: number;
+            /** Released Quantity */
+            released_quantity: number;
+            /** Refunded Goods Fen */
+            refunded_goods_fen: number;
+            /** Net Discount Fen */
+            net_discount_fen: number;
+            /** Performance */
+            performance: components["schemas"]["SkuPerformance"][];
+            /** Limitations */
+            limitations: string[];
+            /** Executions */
+            executions: components["schemas"]["OperationLogOut"][];
+        };
+        /** PromotionTool */
+        PromotionTool: {
+            /**
+             * Sku Id
+             * Format: uuid
+             */
+            sku_id: string;
+            /** Segment Id */
+            segment_id?: string | null;
+            /** Price Fen */
+            price_fen: number;
+            /** Budget Fen */
+            budget_fen: number;
+            /** Quantity */
+            quantity: number;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Unit Expense Fen */
+            unit_expense_fen?: number | null;
+            /**
+             * Minimum Margin Fen
+             * @default 0
+             */
+            minimum_margin_fen: number;
+            /**
+             * Note
+             * @default 商家活动
+             */
+            note: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            tool: "simulate_promotion" | "create_promotion_draft";
+        };
         /** ProposeMemoryTool */
         ProposeMemoryTool: {
             /**
@@ -3791,6 +4739,8 @@ export interface components {
             flash_sale_id?: string;
             /** Flash Sale Version */
             flash_sale_version?: number;
+            /** Merchant Promotion Version */
+            merchant_promotion_version?: number;
         };
         /** QuoteLine */
         QuoteLine: {
@@ -3853,6 +4803,13 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** ReceiptIn */
+        ReceiptIn: {
+            /** Expected Version */
+            expected_version: number;
+            /** Quantity */
+            quantity: number;
+        };
         /** RefundOut */
         RefundOut: {
             /**
@@ -3877,6 +4834,103 @@ export interface components {
             /** Confirmed At */
             confirmed_at: string | null;
         };
+        /** RepeatOut */
+        RepeatOut: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Cohort Buyers */
+            cohort_buyers: number;
+            /** Mature Buyers */
+            mature_buyers: number;
+            /** Immature Buyers */
+            immature_buyers: number;
+            /** Repeat Buyers */
+            repeat_buyers: number;
+            /** Repeat Rate */
+            repeat_rate: number | null;
+            /** Observation Days */
+            observation_days: number;
+            /**
+             * Basis Version
+             * @default paid-repeat-v1
+             */
+            basis_version: string;
+            /**
+             * Note
+             * @default 按支付事实统计，退款不抹除支付次数；未成熟样本不计入分母。
+             */
+            note: string;
+        };
+        /** RepeatTool */
+        RepeatTool: {
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Minimum Samples
+             * @default 5
+             */
+            minimum_samples: number;
+            /**
+             * Minimum Change Fen
+             * @default 1000
+             */
+            minimum_change_fen: number;
+            /**
+             * Change Percent
+             * @default 10
+             */
+            change_percent: number;
+            /**
+             * Ranking
+             * @default gross_profit_fen
+             * @enum {string}
+             */
+            ranking: "gross_profit_fen" | "paid_quantity" | "net_goods_fen" | "contribution_fen";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            tool: "get_repeat_purchase_report";
+            /**
+             * Days
+             * @default 30
+             */
+            days: number;
+        };
+        /** ReportIndex */
+        ReportIndex: {
+            /**
+             * Report Id
+             * Format: uuid
+             */
+            report_id: string;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+        };
         /** ResetConfirm */
         ResetConfirm: {
             /**
@@ -3897,6 +4951,93 @@ export interface components {
              * Format: email
              */
             email: string;
+        };
+        /** RestockDraftTool */
+        RestockDraftTool: {
+            /**
+             * Sku Id
+             * Format: uuid
+             */
+            sku_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Expected On */
+            expected_on?: string | null;
+            /**
+             * Note
+             * @default 补货建议
+             */
+            note: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            tool: "create_restock_draft";
+        };
+        /** RestockEdit */
+        RestockEdit: {
+            /** Expected Version */
+            expected_version: number;
+            /** Quantity */
+            quantity: number;
+            /**
+             * Expected On
+             * Format: date
+             */
+            expected_on: string;
+            /** Note */
+            note: string;
+        };
+        /** RestockIn */
+        RestockIn: {
+            /**
+             * Sku Id
+             * Format: uuid
+             */
+            sku_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Expected On */
+            expected_on?: string | null;
+            /**
+             * Note
+             * @default 补货建议
+             */
+            note: string;
+        };
+        /** RestockOut */
+        RestockOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Sku Id
+             * Format: uuid
+             */
+            sku_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Received */
+            received: number;
+            /** Expected On */
+            expected_on: string | null;
+            /** Status */
+            status: string;
+            /** Version */
+            version: number;
+            /** Note */
+            note: string;
+            /** Evidence */
+            evidence: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** ReturnAddress */
         ReturnAddress: {
@@ -4026,6 +5167,76 @@ export interface components {
              */
             return_id: string;
         };
+        /** RiskOut */
+        RiskOut: {
+            /**
+             * Sku Id
+             * Format: uuid
+             */
+            sku_id: string;
+            /** Title */
+            title: string;
+            /** Code */
+            code: string;
+            /** On Hand */
+            on_hand: number;
+            /** Reserved */
+            reserved: number;
+            /** Allocated */
+            allocated: number;
+            /** Available */
+            available: number;
+            /** Cost Fen */
+            cost_fen: number | null;
+            rule: components["schemas"]["RuleIn"] | null;
+            /** Adjusted Sales */
+            adjusted_sales: number;
+            /** Excluded Cancelled */
+            excluded_cancelled: number;
+            /** Inspected Returns */
+            inspected_returns: number;
+            /** Coverage Days */
+            coverage_days: number | null;
+            /** Incoming */
+            incoming: number;
+            /** Suggested Quantity */
+            suggested_quantity: number | null;
+            /** Estimated Cost Fen */
+            estimated_cost_fen: number | null;
+            /**
+             * Risk
+             * @enum {string}
+             */
+            risk: "unconfigured" | "low" | "slow" | "normal" | "insufficient";
+            /** Limitations */
+            limitations: string[];
+        };
+        /** RuleIn */
+        RuleIn: {
+            /**
+             * Window Days
+             * @default 30
+             */
+            window_days: number;
+            /** Lead Days */
+            lead_days: number;
+            /** Review Days */
+            review_days: number;
+            /** Safety Stock */
+            safety_stock: number;
+            /** Low Stock */
+            low_stock: number;
+            /**
+             * Slow Sales
+             * @default 2
+             */
+            slow_sales: number;
+            /**
+             * Expected Version
+             * @default 0
+             */
+            expected_version: number;
+        };
         /** RunOut */
         RunOut: {
             /**
@@ -4126,6 +5337,120 @@ export interface components {
              * @default 100000000
              */
             max_price: number;
+        };
+        /** SegmentIn */
+        SegmentIn: {
+            /**
+             * Name
+             * @default 客户分群
+             */
+            name: string;
+            /**
+             * Window Days
+             * @default 90
+             */
+            window_days: number;
+            /**
+             * Min Recency Days
+             * @default 0
+             */
+            min_recency_days: number;
+            /** Max Recency Days */
+            max_recency_days?: number | null;
+            /**
+             * Min Orders
+             * @default 1
+             */
+            min_orders: number;
+            /** Min Spending Fen */
+            min_spending_fen?: number | null;
+            /** Max Spending Fen */
+            max_spending_fen?: number | null;
+            /** Category Id */
+            category_id?: string | null;
+        };
+        /** SegmentOut */
+        SegmentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Rules */
+            rules: {
+                [key: string]: unknown;
+            };
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Member Count */
+            member_count: number;
+            /** Active */
+            active: boolean;
+        };
+        /** SegmentPreview */
+        SegmentPreview: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Members */
+            members: number;
+            /** Excluded Unknown Spending */
+            excluded_unknown_spending: number;
+            /** Median Recency Days */
+            median_recency_days: number | null;
+            /** Paid Orders */
+            paid_orders: number;
+            /** Known Net Goods Fen */
+            known_net_goods_fen: number;
+            /**
+             * Basis Version
+             * @default paid-rfm-v1
+             */
+            basis_version: string;
+            rules: components["schemas"]["SegmentIn"];
+        };
+        /** SegmentTool */
+        SegmentTool: {
+            /**
+             * Name
+             * @default 客户分群
+             */
+            name: string;
+            /**
+             * Window Days
+             * @default 90
+             */
+            window_days: number;
+            /**
+             * Min Recency Days
+             * @default 0
+             */
+            min_recency_days: number;
+            /** Max Recency Days */
+            max_recency_days?: number | null;
+            /**
+             * Min Orders
+             * @default 1
+             */
+            min_orders: number;
+            /** Min Spending Fen */
+            min_spending_fen?: number | null;
+            /** Max Spending Fen */
+            max_spending_fen?: number | null;
+            /** Category Id */
+            category_id?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            tool: "preview_customer_segment" | "save_customer_segment_snapshot";
         };
         /** SessionOut */
         SessionOut: {
@@ -4298,6 +5623,57 @@ export interface components {
              * @enum {string}
              */
             tool: "get_categories" | "get_account" | "get_cart" | "get_orders" | "get_returns" | "get_policy" | "get_memory";
+        };
+        /** SimulationOut */
+        SimulationOut: {
+            /** Reference Price Fen */
+            reference_price_fen: number;
+            /** Discount Fen */
+            discount_fen: number;
+            /** Unit Margin Fen */
+            unit_margin_fen: number | null;
+            /** Margin Basis */
+            margin_basis: string;
+            /** Max Units */
+            max_units: number;
+            /** Scenarios */
+            scenarios: {
+                [key: string]: number | null;
+            }[];
+            /** Blockers */
+            blockers: string[];
+        };
+        /** SkuPerformance */
+        SkuPerformance: {
+            /**
+             * Sku Id
+             * Format: uuid
+             */
+            sku_id: string;
+            /** Product Id */
+            product_id: string | null;
+            /** Title */
+            title: string;
+            /** Paid Quantity */
+            paid_quantity: number;
+            /** Net Goods Fen */
+            net_goods_fen: number | null;
+            /** Known Net Goods Fen */
+            known_net_goods_fen: number;
+            /** Known Cost Fen */
+            known_cost_fen: number;
+            /** Gross Profit Fen */
+            gross_profit_fen: number | null;
+            /** Contribution Fen */
+            contribution_fen: number | null;
+            /** Estimated Contribution Fen */
+            estimated_contribution_fen: number | null;
+            /** Line Count */
+            line_count: number;
+            /** Profit Line Count */
+            profit_line_count: number;
+            /** Contribution Line Count */
+            contribution_line_count: number;
         };
         /** SnapshotOut */
         SnapshotOut: {
@@ -5747,6 +7123,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    eligible_sales_api_v1_customer_eligible_flash_sales_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlashSalePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    eligible_sale_api_v1_customer_eligible_flash_sales__sale_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sale_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlashSaleOut"];
                 };
             };
             /** @description Validation Error */
@@ -8278,6 +9717,1030 @@ export interface operations {
             };
         };
     };
+    capabilities_api_v1_merchant_shops__shop_id__operations_capabilities_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reports_api_v1_merchant_shops__shop_id__diagnostics_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportIndex"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    diagnose_api_v1_merchant_shops__shop_id__diagnostics_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PeriodIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiagnosticsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_api_v1_merchant_shops__shop_id__diagnostics__report_id__get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                shop_id: string;
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiagnosticsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evidence_api_v1_merchant_shops__shop_id__diagnostics__report_id__evidence_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                shop_id: string;
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    expenses_api_v1_merchant_shops__shop_id__orders__order_id__expenses_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shop_id: string;
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    expense_api_v1_merchant_shops__shop_id__orders__order_id__expenses_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                shop_id: string;
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpenseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    inventory_api_v1_merchant_shops__shop_id__inventory_risks_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+                sku_id?: string | null;
+            };
+            header?: never;
+            path: {
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MerchantInventoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rule_api_v1_merchant_shops__shop_id__restock_rules__sku_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shop_id: string;
+                sku_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleIn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tasks_api_v1_merchant_shops__shop_id__restock_tasks_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestockOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    draft_restock_api_v1_merchant_shops__shop_id__restock_tasks_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestockIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestockOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    task_api_v1_merchant_shops__shop_id__restock_tasks__task_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shop_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestockOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_api_v1_merchant_shops__shop_id__restock_tasks__task_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                shop_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestockEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestockOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receive_api_v1_merchant_shops__shop_id__restock_tasks__task_id__receive_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                shop_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestockOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    progress_api_v1_merchant_shops__shop_id__restock_tasks__task_id___action__post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                shop_id: string;
+                task_id: string;
+                action: "start" | "cancel";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestockOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_v1_merchant_shops__shop_id__segments_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SegmentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SegmentPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    segments_api_v1_merchant_shops__shop_id__segments_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SegmentOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_segment_api_v1_merchant_shops__shop_id__segments_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SegmentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SegmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deactivate_api_v1_merchant_shops__shop_id__segments__segment_id__deactivate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shop_id: string;
+                segment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SegmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    repeat_api_v1_merchant_shops__shop_id__repeat_purchase_post: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path: {
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PeriodIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepeatOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    simulate_api_v1_merchant_shops__shop_id__promotions_simulate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromotionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimulationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    promotions_api_v1_merchant_shops__shop_id__promotions_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromotionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    draft_promotion_api_v1_merchant_shops__shop_id__promotions_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                shop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromotionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromotionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    promotion_api_v1_merchant_shops__shop_id__promotions__promotion_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shop_id: string;
+                promotion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromotionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validate_api_v1_merchant_shops__shop_id__promotions__promotion_id__validation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shop_id: string;
+                promotion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimulationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_api_v1_merchant_shops__shop_id__promotions__promotion_id__publish_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                shop_id: string;
+                promotion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromotionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_api_v1_merchant_shops__shop_id__promotions__promotion_id__stop_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                shop_id: string;
+                promotion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromotionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    promotion_report_api_v1_merchant_shops__shop_id__promotions__promotion_id__report_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shop_id: string;
+                promotion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromotionReportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    emergency_stop_api_v1_admin_shops__shop_id__promotions__promotion_id__stop_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                shop_id: string;
+                promotion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmergencyStopIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromotionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reconciliations_api_v1_admin_reconciliations_get: {
         parameters: {
             query?: {
@@ -9567,7 +12030,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SearchTool"] | components["schemas"]["ProductTool"] | components["schemas"]["OrderTool"] | components["schemas"]["ReturnTool"] | components["schemas"]["SimpleTool"] | components["schemas"]["ProposeMemoryTool"] | components["schemas"]["MerchantReportTool"] | components["schemas"]["MerchantListTool"];
+                "application/json": components["schemas"]["SearchTool"] | components["schemas"]["ProductTool"] | components["schemas"]["OrderTool"] | components["schemas"]["ReturnTool"] | components["schemas"]["SimpleTool"] | components["schemas"]["ProposeMemoryTool"] | components["schemas"]["MerchantReportTool"] | components["schemas"]["MerchantListTool"] | components["schemas"]["DiagnosticTool"] | components["schemas"]["InventoryTool"] | components["schemas"]["RestockDraftTool"] | components["schemas"]["BusinessResourceTool"] | components["schemas"]["SegmentTool"] | components["schemas"]["RepeatTool"] | components["schemas"]["PromotionTool"];
             };
         };
         responses: {

@@ -5,11 +5,23 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query
 
-from a_commerce.dependencies import Admin, R
+from a_commerce.dependencies import Admin, Customer, R
 from a_commerce.schemas.flash_sales import FlashSaleIn, FlashSaleOut, FlashSalePage, FlashSaleUpdate
 from a_commerce.services import flash_sales
 
 router = APIRouter(prefix="/api/v1", tags=["秒杀"])
+
+
+@router.get("/customer/eligible-flash-sales", response_model=FlashSalePage)
+async def eligible_sales(
+    r: R, p: Customer, cursor: UUID | None = None, limit: Annotated[int, Query(ge=1, le=50)] = 20
+) -> FlashSalePage:
+    return await flash_sales.list_sales(r, cursor, limit, buyer=p)
+
+
+@router.get("/customer/eligible-flash-sales/{sale_id}", response_model=FlashSaleOut)
+async def eligible_sale(sale_id: UUID, r: R, p: Customer) -> FlashSaleOut:
+    return await flash_sales.get_sale(r, sale_id, buyer=p)
 
 
 @router.get("/customer/flash-sales", response_model=FlashSalePage)
