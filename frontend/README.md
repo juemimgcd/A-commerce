@@ -84,3 +84,6 @@ API 服务通过 `COMMERCE_SHOP_CONFIG` 读取 JSON 商家资料。字段包括 
 | `src/lib`                   | 生成契约、关键响应校验、金额与时间格式、未决请求标识 |
 
 普通购买独立运行；pi 助手仍按 M7 单独实施。
+
+密码重置邮件使用后端及邮件 worker 的 `COMMERCE_WEB_ORIGIN` 生成网页链接，
+部署时应将其设为用户实际访问的 HTTP(S) 来源（不包含路径）。

@@ -4,10 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 env_file="${COMMERCE_ENV_FILE:-.env}"
-compose=(docker compose --env-file "$env_file" -f deploy/compose.yaml -f deploy/compose.redis-sentinel.yaml)
-if [[ "${COMMERCE_HA:-0}" == 1 ]]; then
-  compose+=(-f deploy/compose.ha.yaml)
-fi
+source deploy/compose-options.sh
 
 "${compose[@]}" config --quiet
 # 防止同一工作目录中的两次滚动操作同时摘掉两个实例；锁仅由本次持有者清理。
@@ -27,7 +24,7 @@ done
 
 # 拒绝把直连开发部署半途滚动成哨兵模式；拓扑迁移先按维护流程完成。
 "${compose[@]}" exec -T api python scripts/check_redis.py
-if [[ "${COMMERCE_HA:-0}" == 1 ]]; then
+if [[ " ${overlays[*]} " == *" compose.ha.yaml "* ]]; then
   "${compose[@]}" exec -T api python scripts/check_ha.py
 fi
 

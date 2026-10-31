@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import AnyHttpUrl, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from a_commerce.conf.redis import RedisSentinelSettings
@@ -63,6 +63,8 @@ class Settings(BaseSettings):
     password_concurrency: int = Field(default=2, ge=1, le=8)
     return_days: int = Field(default=7, ge=1, le=30)
     files_directory: Path = Path("var/files")
+    # Trusted deployment configuration, never derived from an incoming Host header.
+    web_origin: AnyHttpUrl = AnyHttpUrl("http://127.0.0.1:58080")
     mail_enabled: bool = False
     smtp_host: str = "localhost"
     smtp_port: int = Field(default=587, ge=1, le=65535)
@@ -80,6 +82,13 @@ class Settings(BaseSettings):
     event_retention_days: int = Field(default=90, ge=7, le=3650)
     snapshot_seconds: int = Field(default=900, ge=60, le=3600)
     orphan_grace_seconds: int = Field(default=86400, ge=3600, le=604800)
+
+    @field_validator("web_origin")
+    @classmethod
+    def validate_web_origin(cls, value: AnyHttpUrl) -> AnyHttpUrl:
+        if value.username or value.password or value.query or value.fragment or value.path != "/":
+            raise ValueError("web_origin must be an HTTP(S) origin without credentials or a path")
+        return value
 
     @field_validator("shop_config")
     @classmethod

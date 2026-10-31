@@ -51,6 +51,8 @@ export function commerceExtension(
       if (!allowed.has(event.toolName))
         return { block: true, reason: "工具不在商城授权范围内。" };
       await client.authorize();
+      // Final submission must remain available after the query budget is spent.
+      if (event.toolName === "commerce_respond") return;
       if (metrics.tools >= config.maxTools) {
         metrics.limited = true;
         return {

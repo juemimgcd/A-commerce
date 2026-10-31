@@ -85,7 +85,9 @@ async def execute(
                         raise ValueError("密码重置请求已过期")
                     message["Subject"] = "A-commerce 密码重置"
                     message.set_content(
-                        "请在密码重置确认接口提交以下一次性令牌，30 分钟内有效：\n"
+                        "请打开以下链接设置新密码，30 分钟内有效：\n"
+                        + str(r.settings.web_origin).rstrip("/")
+                        + "/reset-password?token="
                         + token_for(r.settings, reset.id)
                     )
                 else:
