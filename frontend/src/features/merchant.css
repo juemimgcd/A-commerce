@@ -28,3 +28,746 @@
     min-width: 0;
   }
 }
+
+/* The reference video's blue analytics palette is scoped to the seller workspace. */
+.merchant-shell {
+  --primary: #245de8;
+  --primary-contrast: #1d4ed8;
+  --primary-hover: #1844be;
+  --primary-soft: #edf3ff;
+  --primary-focus: #cbdcff;
+  --muted: #637087;
+  --border: #e4eaf2;
+  --radius: 12px;
+  --radius-lg: 16px;
+  min-height: 100vh;
+  background: #f0f4f9;
+  color: #182131;
+  font-size: 14px;
+  padding: 0 36px;
+  accent-color: var(--primary);
+  caret-color: var(--primary);
+}
+.merchant-main {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding-bottom: 24px;
+}
+.merchant-shell ::selection {
+  background: #ccdcff;
+  color: #122b60;
+}
+.merchant-shell .button {
+  font-size: 13px;
+  min-height: 38px;
+  border-radius: 999px;
+}
+.merchant-page.stack {
+  gap: 14px;
+}
+.merchant-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 84px;
+}
+.merchant-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+.merchant-brand > span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--primary);
+  color: white;
+}
+.merchant-brand small {
+  border-left: 1px solid #c9d3e2;
+  padding-left: 12px;
+  margin-left: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.merchant-header-actions,
+.merchant-store-link {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.merchant-store-link {
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.merchant-account {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #dce6fc;
+  color: #2454b9;
+}
+.merchant-shopbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.merchant-shop-select {
+  max-width: 320px;
+}
+.merchant-shop-select select {
+  font-weight: 500;
+  font-size: 13px;
+  border: 0;
+  background-color: transparent;
+  min-height: 34px;
+  padding-left: 0;
+}
+.merchant-shopbar .button {
+  color: var(--muted);
+  font-size: 11px;
+  min-height: 30px;
+  padding: 4px 10px;
+}
+.merchant-tabs {
+  align-items: center;
+  align-self: flex-start;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 5px #22395a05;
+}
+.merchant-tabs > a,
+.merchant-more summary {
+  min-height: 0;
+  padding: 9px 19px;
+  border-radius: 999px;
+  color: #566276;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.merchant-tabs a:hover,
+.merchant-more summary:hover {
+  background: #edf2fa;
+  color: #172033;
+}
+.merchant-tabs [aria-current="page"] {
+  background: #172033;
+  color: #fff;
+}
+.merchant-tabs [aria-current="page"]:hover {
+  background: #253249;
+  color: #fff;
+}
+.merchant-more {
+  position: relative;
+}
+.merchant-more summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.merchant-more summary::-webkit-details-marker {
+  display: none;
+}
+.merchant-more > div {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 10px);
+  right: 0;
+  background: white;
+  width: 170px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px #263b5712;
+}
+.merchant-more > div > a {
+  display: block;
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+.merchant-workspace.stack {
+  gap: 26px;
+}
+.sales-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.sales-heading,
+.sales-controls,
+.sales-panel-heading,
+.sales-meta,
+.sales-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.sales-heading h1 {
+  font-size: 28px;
+  letter-spacing: -0.035em;
+  font-weight: 600;
+}
+.sales-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #65748a;
+  margin-bottom: 6px;
+}
+.sales-controls {
+  justify-content: flex-end;
+  gap: 8px;
+}
+.sales-period {
+  display: flex;
+  align-items: center;
+  background: white;
+  border-radius: 999px;
+  padding-left: 14px;
+  color: var(--muted);
+}
+.sales-period select {
+  border: 0;
+  background-color: transparent;
+  width: auto;
+  min-height: 38px;
+  font-size: 12px;
+}
+.sales-controls .button.secondary {
+  border: 0;
+  background: white;
+}
+.sales-custom-range {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 18px;
+  background: white;
+  border-radius: 12px;
+}
+.sales-custom-range .field {
+  max-width: 240px;
+}
+.sales-meta {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: -3px;
+}
+.sales-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.sales-metric {
+  border-radius: 16px;
+  background: white;
+  padding: 18px 20px 14px;
+  position: relative;
+  min-width: 0;
+}
+.sales-metric-0 {
+  background: linear-gradient(115deg, #2862d8, #1c4fdf);
+  color: white;
+  box-shadow: 0 7px 16px #2258cc1c;
+}
+.sales-metric-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.sales-metric-label h2 {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0;
+  font-weight: 500;
+}
+.sales-metric-0 h2 {
+  color: #fff;
+}
+.sales-metric-icon {
+  background: #eef3fd;
+  color: #245de8;
+  border-radius: 8px;
+  padding: 6px;
+}
+.sales-metric-0 .sales-metric-icon {
+  background: white;
+}
+.sales-metric-1 .sales-metric-icon {
+  background: #e9f8f5;
+  color: #16776d;
+}
+.sales-metric-2 .sales-metric-icon {
+  background: #f2edff;
+  color: #7a4eba;
+}
+.sales-metric-3 .sales-metric-icon {
+  background: #fff0f3;
+  color: #b64a67;
+}
+.sales-value {
+  display: block;
+  font-size: clamp(23px, 2.2vw, 34px);
+  line-height: 1.25;
+  margin: 4px 0 12px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+}
+.sales-change {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 10px;
+}
+.sales-change.positive {
+  background: #eaf7ef;
+  color: #287045;
+}
+.sales-change.negative {
+  background: #fff0f2;
+  color: #a74457;
+}
+.sales-change.neutral {
+  background: #f1f4f8;
+  color: #58677c;
+}
+.sales-metric-0 .sales-change {
+  color: white;
+  background: #ffffff22;
+}
+.sales-definition {
+  margin-top: 10px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.sales-definition summary {
+  cursor: pointer;
+  width: fit-content;
+  min-height: 24px;
+  padding: 4px 0;
+}
+.sales-definition p {
+  margin-top: 8px;
+  line-height: 1.7;
+}
+.sales-metric-0 .sales-definition {
+  color: #fff;
+}
+.sales-middle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: stretch;
+}
+.sales-panel {
+  background: white;
+  border-radius: 16px;
+  min-width: 0;
+  padding: 20px;
+}
+.sales-panel-heading {
+  align-items: flex-start;
+}
+.sales-panel-heading h2 {
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+.sales-subtitle {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.sales-chart-switch {
+  display: flex;
+  gap: 12px;
+}
+.sales-chart-switch button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+}
+.sales-chart-switch button::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: #ced8e8;
+}
+.sales-chart-switch button[aria-pressed="true"] {
+  color: #234fc0;
+}
+.sales-chart-switch button[aria-pressed="true"]::before {
+  background: var(--primary);
+}
+.sales-chart-switch button:hover,
+.sales-chart-caption button:hover {
+  color: var(--primary);
+}
+.sales-chart-caption {
+  display: flex;
+  justify-content: space-between;
+  margin: 14px 0 8px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.sales-chart-caption button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 10px;
+}
+.sales-chart-canvas {
+  position: relative;
+  display: flex;
+  height: 190px;
+  gap: 12px;
+}
+.sales-chart-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 42px;
+  flex-shrink: 0;
+  padding-bottom: 28px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.sales-chart-scroll {
+  overflow-x: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd6e9 transparent;
+}
+.sales-chart-plot {
+  height: 100%;
+  position: relative;
+}
+.sales-gridlines {
+  position: absolute;
+  inset: 0 0 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.sales-gridlines i {
+  border-top: 1px solid #edf0f5;
+  width: 100%;
+}
+.sales-bars {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  height: 100%;
+  padding: 0 10px;
+}
+.sales-bar-column {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  flex: 1;
+  min-width: 24px;
+  max-width: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  margin: 0 auto;
+}
+.sales-bar-track {
+  flex: 1;
+  width: 74%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  position: relative;
+}
+.sales-bar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 8px 8px 0 0;
+  background: #c7d8fb;
+  transition: background 0.18s ease;
+}
+.sales-bar-column.active .sales-bar,
+.sales-bar-column:hover .sales-bar,
+.sales-bar-column:focus-visible .sales-bar {
+  background: #3065ec;
+}
+.sales-bar.unknown {
+  background: transparent;
+}
+.sales-bar-unknown {
+  position: absolute;
+  bottom: 2px;
+  color: var(--muted);
+}
+.sales-bar-date {
+  height: 28px;
+  padding-top: 10px;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.sales-chart-tooltip {
+  position: absolute;
+  top: 4px;
+  left: 56px;
+  pointer-events: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 6px 18px #1a325c14;
+  padding: 10px 12px;
+  min-width: 174px;
+  font-size: 10px;
+  display: grid;
+  gap: 6px;
+}
+.sales-chart-tooltip > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  color: var(--muted);
+}
+.sales-chart-tooltip b {
+  color: #182131;
+}
+.sales-live {
+  color: #287045;
+  font-size: 10px;
+  background: #edf7f1;
+  border-radius: 5px;
+  padding: 2px 6px;
+}
+.sales-todo-list {
+  margin-top: 15px;
+}
+.sales-todo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 45px;
+  border-bottom: 1px solid #f0f3f8;
+  font-size: 12px;
+}
+.sales-todo strong {
+  margin-left: auto;
+  font-size: 17px;
+  font-weight: 600;
+}
+.sales-todo > svg {
+  color: #7c8ba1;
+}
+.sales-todo-icon {
+  padding: 6px;
+  border-radius: 8px;
+  background: #f1f5fc;
+  color: #54719d;
+}
+.sales-todo:hover .sales-todo-icon {
+  background: #e4edff;
+  color: #245de8;
+}
+.sales-todo-note {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.65;
+  margin-top: 12px;
+}
+.sales-todo-note a {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--primary-contrast);
+}
+.sales-comparison-note {
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: -9px;
+}
+.sales-orders {
+  padding: 20px 0 4px;
+}
+.sales-orders .sales-panel-heading,
+.sales-orders > .notice {
+  margin: 0 20px 12px;
+}
+.sales-text-link {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--primary-contrast);
+}
+.sales-orders .table-scroll {
+  border: 0;
+  border-radius: 0 0 16px 16px;
+}
+.sales-orders table {
+  font-size: 12px;
+}
+.sales-orders th {
+  background: white;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 12px 20px;
+}
+.sales-orders td {
+  padding: 9px 20px;
+  border-color: #f0f3f8;
+}
+.sales-orders tr:last-child td {
+  border-bottom: 0;
+}
+.sales-orders td small {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.sales-order-link {
+  padding: 0;
+  border: 0;
+  color: var(--primary-contrast);
+  background: none;
+  font-size: 12px;
+  font-weight: 500;
+}
+.sales-order-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sales-order-product {
+  max-width: 340px;
+}
+.sales-orders .status {
+  font-size: 10px;
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+.sales-orders .status > span {
+  display: none;
+}
+.sales-orders .status.neutral {
+  color: #526581;
+  background: #edf2f8;
+}
+.sales-footer {
+  font-size: 10px;
+  color: var(--muted);
+  padding: 4px 2px;
+}
+.sales-footer a {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+}
+@media (min-width: 1280px) {
+  .merchant-workspace > .merchant-tabs {
+    position: absolute;
+    top: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+@media (max-width: 1100px) {
+  .merchant-shell {
+    padding: 0 24px;
+  }
+  .sales-middle {
+    grid-template-columns: minmax(0, 1fr) 260px;
+  }
+  .sales-metric {
+    padding: 16px;
+  }
+}
+@media (max-width: 767px) {
+  .merchant-shell {
+    padding: 0 16px;
+  }
+  .merchant-header {
+    min-height: 70px;
+  }
+  .merchant-brand small,
+  .merchant-store-link {
+    display: none;
+  }
+  .merchant-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    border-radius: 16px;
+  }
+  .merchant-tabs > a,
+  .merchant-more summary {
+    padding: 8px 12px;
+  }
+  .sales-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .sales-controls {
+    flex-wrap: wrap;
+  }
+  .sales-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sales-middle {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sales-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .sales-panel {
+    padding: 16px;
+  }
+  .sales-orders {
+    padding: 16px 0 4px;
+  }
+  .sales-chart-switch {
+    gap: 8px;
+  }
+  .sales-value {
+    font-size: 24px;
+  }
+  .sales-footer {
+    flex-wrap: wrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sales-bar {
+    transition: none;
+  }
+}

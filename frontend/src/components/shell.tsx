@@ -100,7 +100,13 @@ export function Shell({ children }: { children: ReactNode }) {
       <a href="#main" className="skip-link">
         跳转到主要内容
       </a>
-      {admin ? (
+      {pathname === "/merchant" ? (
+        <div className="merchant-shell">
+          <main id="main" className="merchant-main">
+            {children}
+          </main>
+        </div>
+      ) : admin ? (
         <div className="admin-app">
           <aside className="sidebar">
             <Link href="/admin" className="sidebar-title">

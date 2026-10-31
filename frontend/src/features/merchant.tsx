@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { Storefront, ArrowUpRight, UserCircle, CaretDown } from "@phosphor-icons/react";
+import { MerchantOverview } from "./merchant-overview";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -60,23 +62,33 @@ function Merchant() {
   const selected = query.data?.find((shop) => shop.id === search.get("shop")) ?? query.data?.[0];
   return (
     <div className="merchant-page stack">
-      <PageTitle
-        eyebrow="经营店铺"
-        title="商家工作台"
-        description="管理当前店铺的商品、订单与经营数据。"
-        action={
-          <Link className="button secondary" href="/account">
-            我的账户
+      <header className="merchant-header">
+        <Link
+          href={selected ? `/merchant?shop=${selected.id}&tab=overview` : "/merchant"}
+          className="merchant-brand"
+        >
+          <span>
+            <Storefront size={22} weight="bold" />
+          </span>
+          A-commerce <small>卖家中心</small>
+        </Link>
+        <div className="merchant-header-actions">
+          <Link href="/" className="merchant-store-link">
+            查看商城 <ArrowUpRight size={15} />
           </Link>
-        }
-      />
+          <Link href="/account" className="merchant-account" aria-label="我的账户">
+            <UserCircle size={26} />
+          </Link>
+        </div>
+      </header>
       <ErrorNotice error={query.error} retry={() => void query.refetch()} />
       {query.isPending ? (
         <Loading />
       ) : selected ? (
         <>
-          <div className="toolbar">
-            <Field label="当前店铺">
+          <div className="merchant-shopbar">
+            <label className="merchant-shop-select">
+              <span className="sr-only">当前店铺</span>
               <select
                 value={selected.id}
                 onChange={(event) => router.replace(`/merchant?shop=${event.target.value}`)}
@@ -87,12 +99,8 @@ function Merchant() {
                   </option>
                 ))}
               </select>
-            </Field>
-            <Button
-              variant="secondary"
-              busy={query.isFetching}
-              onClick={() => void query.refetch()}
-            >
+            </label>
+            <Button variant="ghost" busy={query.isFetching} onClick={() => void query.refetch()}>
               刷新店铺
             </Button>
           </div>
@@ -116,33 +124,61 @@ function Merchant() {
 
 function MerchantWorkspace({ shop }: { shop: Shop }) {
   const search = useSearchParams();
-  const router = useRouter();
-  const tab = search.get("tab") ?? "products";
+  const primary = [
+    ["overview", "经营概览"],
+    ["products", "商品"],
+    ["orders", "订单"],
+    ["customers", "客户"],
+    ["reports", "报表"],
+  ];
+  const secondary = [
+    ["returns", "售后处理"],
+    ["diagnostics", "经营诊断"],
+    ["inventory", "库存与补货"],
+    ["promotions", "活动方案"],
+    ["agent", "经营助手"],
+    ["settings", "店铺资料"],
+  ];
+  const requested = search.get("tab") ?? "overview";
+  const tab = [...primary, ...secondary].some(([key]) => key === requested)
+    ? requested
+    : "overview";
   return (
-    <div className="stack">
+    <div className="stack merchant-workspace">
       <nav className="merchant-tabs" aria-label="店铺功能">
-        {[
-          ["products", "商品与库存"],
-          ["orders", "订单履约"],
-          ["returns", "售后处理"],
-          ["reports", "经营报表"],
-          ["diagnostics", "经营诊断"],
-          ["inventory", "库存与补货"],
-          ["customers", "客户分群"],
-          ["promotions", "活动方案"],
-          ["agent", "经营助手"],
-          ["settings", "店铺资料"],
-        ].map(([key, name]) => (
-          <Button
+        {primary.map(([key, name]) => (
+          <Link
             key={key}
-            variant={tab === key ? "primary" : "secondary"}
+            href={`/merchant?shop=${shop.id}&tab=${key}`}
             aria-current={tab === key ? "page" : undefined}
-            onClick={() => router.replace(`/merchant?shop=${shop.id}&tab=${key}`)}
           >
             {name}
-          </Button>
+          </Link>
         ))}
+        <details className="merchant-more" key={tab}>
+          <summary aria-current={secondary.some(([key]) => key === tab) ? "page" : undefined}>
+            {secondary.find(([key]) => key === tab)?.[1] ?? "更多功能"}
+            <CaretDown size={14} />
+          </summary>
+          <div>
+            {secondary.map(([key, name]) => (
+              <Link
+                key={key}
+                href={`/merchant?shop=${shop.id}&tab=${key}`}
+                aria-current={tab === key ? "page" : undefined}
+              >
+                {name}
+              </Link>
+            ))}
+          </div>
+        </details>
       </nav>
+      {tab === "overview" && (
+        <MerchantOverview
+          shop={shop}
+          renderOrder={(id, onDone) => <MerchantOrder shop={shop} orderId={id} onDone={onDone} />}
+        />
+      )}
       {tab === "products" && <MerchantProducts shop={shop} />}
       {tab === "orders" && <MerchantOrders shop={shop} />}
       {tab === "returns" && <MerchantReturns shop={shop} />}
@@ -1080,9 +1116,16 @@ function percent(value: number | null) {
 }
 
 function MerchantAgent({ shop }: { shop: Shop }) {
+  const search = useSearchParams();
   const visible = useVisible();
   const [conversation, setConversation] = useState<string>();
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() => {
+    const start = search.get("start") ?? "";
+    const end = search.get("end") ?? "";
+    return /^\d{4}-\d{2}-\d{2}$/.test(start) && /^\d{4}-\d{2}-\d{2}$/.test(end)
+      ? `请分析本店 ${start} 至 ${end}（结束日期不包含）的销售情况、上期变化和需要关注的问题。`
+      : "";
+  });
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const base = `merchant/shops/${shop.id}`;
   const conversations = useQuery({
