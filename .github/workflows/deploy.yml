@@ -1,49 +1,66 @@
-name: deploy-staging
+name: deploy-cloud
 on:
+  workflow_run:
+    workflows: [backend]
+    branches: [main]
+    types: [completed]
   workflow_dispatch:
     inputs:
-      tag:
-        description: Published release tag, e.g. v0.1.0
-        required: true
-        type: string
-  workflow_call:
-    inputs:
-      tag:
+      run_id:
+        description: Successful backend workflow run ID on main
         required: true
         type: string
 permissions:
   contents: read
+  actions: read
+  packages: read
 concurrency:
-  group: deploy-staging
+  group: deploy-cloud
   cancel-in-progress: false
 jobs:
   deploy:
-    if: vars.DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' &&
+      ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment: staging
+    timeout-minutes: 30
+    environment:
+      name: staging
+      url: ${{ vars.DEPLOY_URL }}
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      RELEASE_TAG: ${{ inputs.tag }}
+      SOURCE_RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
       DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
       DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT }}
+      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
     steps:
-      - name: Validate destination and release
+      - name: Validate trusted main build and download its artifact
+        id: source
         run: |
-          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
           [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
           [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
           [[ "$DEPLOY_ROOT" =~ ^/[a-zA-Z0-9_/-]+$ && "$DEPLOY_ROOT" != / ]]
-          [[ "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" == false ]]
-          mkdir -p bundle
-          gh release download "$RELEASE_TAG" --dir bundle --pattern '*-deploy.tar.gz' --pattern SHA256SUMS
-          cd bundle
-          grep " ./a-commerce-$RELEASE_TAG-deploy.tar.gz\$" SHA256SUMS > deploy.sha256
-          sha256sum --check deploy.sha256
+          [[ "$DEPLOY_URL" =~ ^https://[a-zA-Z0-9.-]+(/[a-zA-Z0-9_-]+)*$ ]]
+          gh api "repos/$GH_REPO/actions/runs/$SOURCE_RUN_ID" > source-run.json
+          # workflow_run has deployment credentials: never execute an artifact from a PR/fork.
+          jq -e --arg repo "$GH_REPO" '.path == ".github/workflows/backend.yml" and
+            .head_branch == "main" and .head_repository.full_name == $repo and
+            .conclusion == "success" and (.event == "push" or .event == "workflow_dispatch")' source-run.json
+          sha=$(jq -r .head_sha source-run.json)
+          attempt=$(jq -r .run_attempt source-run.json)
+          [[ "$sha" =~ ^[a-f0-9]{40}$ ]]
+          gh run download "$SOURCE_RUN_ID" --name "deployment-$SOURCE_RUN_ID-$attempt" --dir bundle
+          (cd bundle && sha256sum --check SHA256SUMS)
+          # Check revision before connecting to the deployment host.
+          tar -xOf bundle/a-commerce-deploy.tar.gz ./image.env > image.env
+          grep -Fx "COMMERCE_REVISION=$sha" image.env
+          printf 'sha=%s\n' "$sha" >> "$GITHUB_OUTPUT"
       - name: Configure SSH with pinned host identity
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -56,14 +73,26 @@ jobs:
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
       - name: Transfer and deploy the immutable release
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
         run: |
           destination="$DEPLOY_USER@$DEPLOY_HOST"
-          release_dir="$DEPLOY_ROOT/releases/$RELEASE_TAG-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          release_dir="$DEPLOY_ROOT/releases/$SOURCE_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -p "$DEPLOY_PORT" "$destination" "mkdir -p '$release_dir'"
           scp -o BatchMode=yes -o StrictHostKeyChecking=yes -P "$DEPLOY_PORT" \
-            "bundle/a-commerce-$RELEASE_TAG-deploy.tar.gz" bundle/deploy.sha256 "$destination:$release_dir/"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -p "$DEPLOY_PORT" "$destination" \
-            "cd '$release_dir' && sha256sum -c deploy.sha256 && tar -xzf 'a-commerce-$RELEASE_TAG-deploy.tar.gz' && DEPLOY_ROOT='$DEPLOY_ROOT' flock '$DEPLOY_ROOT/.deploy.lock' bash deploy/deploy.sh"
+            bundle/a-commerce-deploy.tar.gz bundle/SHA256SUMS "$destination:$release_dir/"
+          # A new GHCR package can be private. Use this run's token only while pulling.
+          printf '%s' "$GH_TOKEN" | ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -p "$DEPLOY_PORT" "$destination" \
+            "set -eu; cd '$release_dir'; sha256sum -c SHA256SUMS; tar -xzf a-commerce-deploy.tar.gz; \
+             export DOCKER_CONFIG=\$(mktemp -d '$DEPLOY_ROOT/.registry.XXXXXX'); \
+             trap 'rm -rf \"\$DOCKER_CONFIG\"' EXIT; \
+             docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin; \
+             DEPLOY_ROOT='$DEPLOY_ROOT' flock '$DEPLOY_ROOT/.deploy.lock' bash deploy/deploy.sh"
+      - name: Verify public HTTPS storefront
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 15 "$DEPLOY_URL/api/health"
+          curl --fail --silent --show-error --max-time 20 "$DEPLOY_URL" -o /dev/null
+          printf 'Deployed [%s](%s) from commit `%s`.\n' "$DEPLOY_URL" "$DEPLOY_URL" "${{ steps.source.outputs.sha }}" >> "$GITHUB_STEP_SUMMARY"
       - name: Remove SSH credentials
         if: always()
         run: rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts

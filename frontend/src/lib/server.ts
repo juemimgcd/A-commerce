@@ -1,13 +1,14 @@
 import "server-only";
 import { headers } from "next/headers";
 import { cache } from "react";
+import { basePath } from "@/lib/paths";
 
 export const cookieNames = { customer: "commerce_customer", admin: "commerce_admin" } as const;
 export function apiOrigin() {
   return process.env.COMMERCE_API_ORIGIN ?? "http://127.0.0.1:58000";
 }
 export function webOrigin() {
-  return process.env.COMMERCE_WEB_ORIGIN ?? "http://127.0.0.1:3000";
+  return `${process.env.COMMERCE_WEB_ORIGIN ?? "http://127.0.0.1:3000"}${basePath}`;
 }
 
 const readPublic = cache(async (path: string): Promise<unknown> => {

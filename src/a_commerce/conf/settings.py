@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     files_directory: Path = Path("var/files")
     # Trusted deployment configuration, never derived from an incoming Host header.
     web_origin: AnyHttpUrl = AnyHttpUrl("http://127.0.0.1:58080")
+    web_base_path: str = Field(default="", pattern=r"^(?:/[a-zA-Z0-9_-]+)*$")
     mail_enabled: bool = False
     smtp_host: str = "localhost"
     smtp_port: int = Field(default=587, ge=1, le=65535)

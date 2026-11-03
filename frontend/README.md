@@ -87,3 +87,9 @@ API 服务通过 `COMMERCE_SHOP_CONFIG` 读取 JSON 商家资料。字段包括 
 
 密码重置邮件使用后端及邮件 worker 的 `COMMERCE_WEB_ORIGIN` 生成网页链接，
 部署时应将其设为用户实际访问的 HTTP(S) 来源（不包含路径）。
+
+## 云端子路径
+
+云端入口为 `https://www.mneme.com.cn/shop`。构建时设置 `NEXT_PUBLIC_COMMERCE_BASE_PATH=/shop`；这个值不能只在启动时更改。Docker 构建参数同名，Compose 从 `COMMERCE_WEB_BASE_PATH` 传入。运行时 `COMMERCE_WEB_ORIGIN=https://www.mneme.com.cn` 不带路径。默认空前缀保留原来的本地开发方式。
+
+Next Link/router 自动加前缀；原生 fetch、图片、表单和下载使用 `src/lib/paths.ts` 的 `webPath`。不要给 Link 再包一层 webPath。登录及注销 Cookie 使用相同的子路径。CD 和 Nginx 配置见 [发布文档](../docs/releasing.md)。

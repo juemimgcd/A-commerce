@@ -87,6 +87,7 @@ async def execute(
                     message.set_content(
                         "请打开以下链接设置新密码，30 分钟内有效：\n"
                         + str(r.settings.web_origin).rstrip("/")
+                        + r.settings.web_base_path
                         + "/reset-password?token="
                         + token_for(r.settings, reset.id)
                     )

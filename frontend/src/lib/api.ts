@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { webPath } from "@/lib/paths";
 
 const errorSchema = z.object({
   error: z.object({ code: z.string(), message: z.string(), retryable: z.boolean().optional() }),
@@ -48,7 +49,7 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
   if (key) headers.set("Idempotency-Key", key);
   let response: Response;
   try {
-    response = await fetch(`/api/commerce/${path}`, {
+    response = await fetch(webPath(`/api/commerce/${path}`), {
       ...init,
       headers,
       body: json === undefined ? init.body : JSON.stringify(json),
@@ -134,5 +135,5 @@ export function queryString(values: Record<string, string | number | boolean | u
 }
 
 export function mediaUrl(id?: string | null, admin = false) {
-  return id ? `/api/commerce/${admin ? "admin" : "customer"}/media/${id}` : undefined;
+  return id ? webPath(`/api/commerce/${admin ? "admin" : "customer"}/media/${id}`) : undefined;
 }

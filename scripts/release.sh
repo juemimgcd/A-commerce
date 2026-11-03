@@ -34,9 +34,11 @@ case "${1:-}" in
   publish)
     [[ "${PUBLISH_ALLOWED:-false}" == true ]]
     [[ "${IMAGE_DIGEST:-}" =~ ^sha256:[a-f0-9]{64}$ ]]
+    [[ "${WEB_IMAGE_DIGEST:-}" =~ ^sha256:[a-f0-9]{64}$ ]]
     mkdir -p dist/deployment
     git archive HEAD deploy .env.example scripts/configure_local.py docs/releasing.md docs/traffic-deployment.md docs/backend-validation.md docs/redis-sentinel.md | tar -x -C dist/deployment
-    printf 'COMMERCE_IMAGE=%s@%s\n' "$image" "$IMAGE_DIGEST" > dist/deployment/image.env
+    printf 'COMMERCE_IMAGE=%s@%s\nCOMMERCE_WEB_IMAGE=%s-web@%s\n' \
+      "$image" "$IMAGE_DIGEST" "$image" "$WEB_IMAGE_DIGEST" > dist/deployment/image.env
     tar -czf "dist/a-commerce-$tag-deploy.tar.gz" -C dist/deployment .
     git archive --format=tar.gz --prefix="a-commerce-$tag/" -o "dist/a-commerce-$tag-source.tar.gz" HEAD
     (cd dist && sha256sum ./*.tar.gz > SHA256SUMS)
