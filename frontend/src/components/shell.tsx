@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { webPath } from "@/lib/paths";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, type ReactNode, type FormEvent } from "react";
 import {
@@ -200,7 +201,7 @@ export function Shell({ children }: { children: ReactNode }) {
                     <form
                       className="header-search"
                       role="search"
-                      action="/products"
+                      action={webPath("/products")}
                       method="get"
                       onSubmit={search}
                     >

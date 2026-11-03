@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiOrigin, cookieNames, webOrigin } from "@/lib/server";
+import { basePath } from "@/lib/paths";
 
 export const runtime = "nodejs";
 const uuid = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
@@ -167,7 +168,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
       httpOnly: true,
       secure: new URL(webOrigin()).protocol === "https:",
       sameSite: "lax",
-      path: "/",
+      path: basePath || "/",
       expires: new Date(data.expires_at),
     });
     return response;
@@ -177,7 +178,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
     (target.endsWith("/auth/logout") && (upstream.ok || upstream.status === 401)) ||
     (target.endsWith("/auth/password") && upstream.ok)
   )
-    response.cookies.delete(cookieNames[scope]);
+    response.cookies.set(cookieNames[scope], "", { path: basePath || "/", expires: new Date(0) });
   return response;
 }
 

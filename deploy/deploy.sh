@@ -11,13 +11,24 @@ if [[ ! -f "$COMMERCE_ENV_FILE" ]]; then
   echo "Missing $COMMERCE_ENV_FILE; configure the staging environment first." >&2
   exit 1
 fi
+# 运行配置由服务器管理员生成；先读取，再用发布清单固定镜像，避免旧配置覆盖摘要。
+set -a
+source "$COMMERCE_ENV_FILE"
+set +a
 # image.env 来自发布工作流，只允许当前仓库的不可变镜像摘要。
 COMMERCE_IMAGE=$(sed -n 's/^COMMERCE_IMAGE=//p' image.env)
 if [[ ! "$COMMERCE_IMAGE" =~ ^ghcr\.io/juemimgcd/a-commerce@sha256:[a-f0-9]{64}$ ]]; then
   echo "Invalid release image digest." >&2
   exit 1
 fi
-export COMMERCE_IMAGE
+COMMERCE_WEB_IMAGE=$(sed -n 's/^COMMERCE_WEB_IMAGE=//p' image.env)
+# 缺少前端摘要的旧制品不能部署，否则会混用未验证的本地前端镜像。
+if [[ ! "$COMMERCE_WEB_IMAGE" =~ ^ghcr\.io/juemimgcd/a-commerce-web@sha256:[a-f0-9]{64}$ ]]; then
+  echo "Invalid storefront image digest." >&2
+  exit 1
+fi
+export COMMERCE_IMAGE COMMERCE_WEB_IMAGE
+export COMMERCE_WEB=1
 env_file="$COMMERCE_ENV_FILE"
 source deploy/compose-options.sh
 "${compose[@]}" config --quiet
@@ -34,7 +45,7 @@ source deploy/compose-options.sh
   --apply-to quorum_queues --priority 10
 
 # 先停所有写入方，随后备份业务库、provider 卷和媒体卷，最后执行迁移。
-"${compose[@]}" stop gateway api api-secondary api-callbacks relay worker worker-general worker-maintenance provider
+"${compose[@]}" stop gateway web api api-secondary api-callbacks relay worker worker-general worker-maintenance provider
 backup="$DEPLOY_ROOT/backups/$(date -u +%Y%m%dT%H%M%SZ)-$$"
 mkdir -p "$backup"
 trap 'echo "Deployment failed. Services may be stopped; inspect logs and backup: $backup. No automatic database downgrade was attempted." >&2' ERR
@@ -47,10 +58,13 @@ fi
 "${compose[@]}" run --rm --no-deps -T migrate
 "${compose[@]}" up -d --no-build --no-deps --wait --wait-timeout 180 \
   api api-secondary api-callbacks provider relay worker worker-general worker-maintenance
+"${compose[@]}" up -d --no-build --no-deps --wait --wait-timeout 120 web
 "${compose[@]}" up -d --no-build --no-deps --wait --wait-timeout 90 gateway
 curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 2 \
   --max-time 5 "http://127.0.0.1:${COMMERCE_GATEWAY_PORT:-58000}/health/ready"
+curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 2 \
+  --max-time 5 "http://127.0.0.1:${COMMERCE_WEB_PORT:-58080}${COMMERCE_WEB_BASE_PATH:-}/api/health"
 # 仅成功后移动 current；旧 Release 和备份均保留。
 ln -sfn "$PWD" "$DEPLOY_ROOT/current.next"
 mv -Tf "$DEPLOY_ROOT/current.next" "$DEPLOY_ROOT/current"
-echo "Deployed $COMMERCE_IMAGE; backup: $backup"
+echo "Deployed backend=$COMMERCE_IMAGE web=$COMMERCE_WEB_IMAGE; backup: $backup"

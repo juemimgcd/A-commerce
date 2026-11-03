@@ -85,13 +85,12 @@ jobs:
   container:
     needs: [check, regression]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: write
       packages: write
     outputs:
-      released: ${{ steps.plan.outputs.publish }}
-      tag: ${{ steps.plan.outputs.tag }}
+      image_digest: ${{ steps.image.outputs.digest }}
     env:
       GH_TOKEN: ${{ github.token }}
       PUBLISH_ALLOWED: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
@@ -102,7 +101,7 @@ jobs:
           persist-credentials: false
       - name: Validate deployment configuration
         run: |
-          bash -n scripts/release.sh deploy/deploy.sh deploy/roll-api.sh
+          bash -n scripts/release.sh scripts/deployment_bundle.sh deploy/deploy.sh deploy/roll-api.sh
           sh -n deploy/redis-node.sh deploy/redis-sentinel.sh
           cp .env.example .env
           docker compose --env-file .env -f deploy/compose.yaml config --quiet
@@ -113,6 +112,8 @@ jobs:
           docker compose --env-file .env -f deploy/compose.yaml -f deploy/compose.monitoring.yaml run --rm --no-deps --entrypoint promtool prometheus check config /etc/prometheus/prometheus.yml
           docker compose --env-file .env -f deploy/compose.yaml -f deploy/compose.monitoring.yaml run --rm --no-deps -v "$PWD/tests/prometheus-rules.yml:/etc/prometheus/rules-test.yml:ro" --entrypoint promtool prometheus test rules /etc/prometheus/rules-test.yml
           docker compose --env-file .env -f deploy/compose.yaml -f deploy/compose.monitoring.yaml run --rm --no-deps --entrypoint amtool alertmanager check-config /etc/alertmanager/alertmanager.yml
+          docker compose --env-file .env -f deploy/compose.yaml -f deploy/compose.web.yaml config --quiet
+          docker compose --env-file .env -f deploy/compose.yaml -f deploy/compose.web.yaml run --rm --no-deps gateway haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg
           rm .env
       - name: Plan versioned release
         id: plan
@@ -120,40 +121,68 @@ jobs:
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
-        if: steps.plan.outputs.publish == 'true'
+        if: env.PUBLISH_ALLOWED == 'true'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
-      - name: Build both architectures; publish new versions only
+      - name: Build backend; publish each validated main commit
         id: image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: deploy/Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: ${{ steps.plan.outputs.publish == 'true' }}
+          push: ${{ env.PUBLISH_ALLOWED == 'true' }}
           tags: |
-            ${{ steps.plan.outputs.image }}:${{ steps.plan.outputs.tag }}
             ${{ steps.plan.outputs.image }}:sha-${{ github.sha }}
+            ${{ steps.plan.outputs.publish == 'true' && format('{0}:{1}', steps.plan.outputs.image, steps.plan.outputs.tag) || '' }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.plan.outputs.tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
           provenance: mode=min
           sbom: true
+      - name: Build storefront with the cloud mount path
+        id: web
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          build-args: NEXT_PUBLIC_COMMERCE_BASE_PATH=/shop
+          push: ${{ env.PUBLISH_ALLOWED == 'true' }}
+          tags: |
+            ${{ steps.plan.outputs.image }}-web:sha-${{ github.sha }}
+            ${{ steps.plan.outputs.publish == 'true' && format('{0}-web:{1}', steps.plan.outputs.image, steps.plan.outputs.tag) || '' }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+          provenance: mode=min
+          sbom: true
+      - name: Package immutable cloud deployment
+        if: env.PUBLISH_ALLOWED == 'true'
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          WEB_IMAGE_DIGEST: ${{ steps.web.outputs.digest }}
+        run: bash scripts/deployment_bundle.sh
+      - name: Upload deployment artifact for this exact CI attempt
+        if: env.PUBLISH_ALLOWED == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: deployment-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            dist/cloud/a-commerce-deploy.tar.gz
+            dist/cloud/SHA256SUMS
       - name: Create tag and publish release assets
         if: steps.plan.outputs.publish == 'true'
         env:
           IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          WEB_IMAGE_DIGEST: ${{ steps.web.outputs.digest }}
         run: bash scripts/release.sh publish
-
-  deploy:
-    needs: container
-    if: needs.container.outputs.released == 'true' && vars.DEPLOY_ENABLED == 'true'
-    uses: ./.github/workflows/deploy.yml
-    with:
-      tag: ${{ needs.container.outputs.tag }}
-    secrets: inherit

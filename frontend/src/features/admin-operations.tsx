@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { webPath } from "@/lib/paths";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -237,7 +238,7 @@ function Reports() {
             {job.data?.status === "done" ? (
               <a
                 className="button secondary"
-                href={`/api/commerce/admin/exports/${exportId}/download`}
+                href={webPath(`/api/commerce/admin/exports/${exportId}/download`)}
                 download
               >
                 <DownloadSimple />

@@ -23,6 +23,9 @@ fi
 if [[ "${COMMERCE_HA:-0}" == 1 && " ${overlays[*]} " != *" compose.ha.yaml "* ]]; then
   overlays+=(compose.ha.yaml)
 fi
+if [[ "${COMMERCE_WEB:-0}" == 1 && " ${overlays[*]} " != *" compose.web.yaml "* ]]; then
+  overlays+=(compose.web.yaml)
+fi
 for name in "${overlays[@]}"; do
   if [[ ! -f "deploy/$name" ]]; then
     echo "Missing deployed overlay: deploy/$name" >&2

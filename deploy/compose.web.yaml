@@ -4,6 +4,8 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_COMMERCE_BASE_PATH: ${COMMERCE_WEB_BASE_PATH:-}
     image: ${COMMERCE_WEB_IMAGE:-a-commerce-web:local}
     environment:
       COMMERCE_API_ORIGIN: http://gateway:8080
@@ -17,7 +19,7 @@ services:
       edge:
         ipv4_address: ${COMMERCE_WEB_IP:-172.29.83.3}
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000'+(process.env.NEXT_PUBLIC_COMMERCE_BASE_PATH||'')+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 4s
       retries: 12
@@ -27,6 +29,8 @@ services:
     ports: ["127.0.0.1:${COMMERCE_WEB_PORT:-58080}:8082"]
     environment:
       COMMERCE_WEB_IP: ${COMMERCE_WEB_IP:-172.29.83.3}
+      COMMERCE_WEB_BASE_PATH: ${COMMERCE_WEB_BASE_PATH:-}
+      COMMERCE_EDGE_PROXY_IP: ${COMMERCE_EDGE_PROXY_IP:-127.0.0.1}
     volumes: ["./haproxy.web.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro"]
     depends_on:
       web: {condition: service_healthy}
