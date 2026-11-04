@@ -53,3 +53,7 @@ node scripts/catalog_load.mjs http://127.0.0.1:58000 dataset.json browse 10000 1
 移入最新 main 后，`sh scripts/check.sh`、依赖审计及完整现有真实服务回归通过（58 passed、2 skipped，启用 ResourceWarning 错误检查）。没有新增或修改测试文件。既有回归未完整覆盖版本合并的所有取消、过期与切主组合。
 
 本次范围不含 Next.js 转发、TLS、图片、CDN、交易混合流量或生产验收。冷启动、集中失效、商品更新和高压故障恢复仍需验证。测试文件按项目约定保持不变。
+
+## 分类分页数据库索引
+
+针对公开目录分类筛选和 ID 游标分页，新增上架商品的 `(category_id, id)` 部分联合索引。独立于 Redis 的 JMeter JDBC 对照和测量边界见 [2026-11-04 索引验证](catalog-index-benchmark-2026-11-04.md)。

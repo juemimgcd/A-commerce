@@ -11,6 +11,7 @@ from sqlalchemy import (
     Index,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -78,6 +79,14 @@ class Shop(Record):
 
 class Product(Record):
     __tablename__ = "products"
+    __table_args__ = (
+        Index(
+            "ix_products_active_category_id",
+            "category_id",
+            "id",
+            postgresql_where=text("active IS TRUE"),
+        ),
+    )
     shop_id: Mapped[UUID] = mapped_column(
         ForeignKey("shops.id"), index=True, default=LEGACY_SHOP_ID
     )

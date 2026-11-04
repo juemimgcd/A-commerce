@@ -1,0 +1,93 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Catalog category index JDBC benchmark" enabled="true">
+      <stringProp name="TestPlan.comments">Database-query benchmark only; no Redis, HTTP, product_outputs, or production data.</stringProp>
+    </TestPlan>
+    <hashTree>
+      <JDBCDataSource guiclass="TestBeanGUI" testclass="JDBCDataSource" testname="Isolated PostgreSQL" enabled="true">
+        <stringProp name="dataSource">catalog</stringProp>
+        <stringProp name="dbUrl">jdbc:postgresql://127.0.0.1:55439/commerce_load_index</stringProp>
+        <stringProp name="driver">org.postgresql.Driver</stringProp>
+        <stringProp name="username">postgres</stringProp>
+        <stringProp name="password" />
+        <stringProp name="poolMax">10</stringProp>
+        <stringProp name="timeout">10000</stringProp>
+        <stringProp name="trimInterval">60000</stringProp>
+        <stringProp name="autocommit">true</stringProp>
+        <stringProp name="transactionIsolation">DEFAULT</stringProp>
+        <stringProp name="keepAlive">true</stringProp>
+        <stringProp name="connectionAge">5000</stringProp>
+        <stringProp name="checkQuery">SELECT 1</stringProp>
+        <stringProp name="preinit">true</stringProp>
+      </JDBCDataSource>
+      <hashTree />
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="10 clients, 100 queries per second" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">stoptest</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">200</stringProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">10</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+        <stringProp name="ThreadGroup.scheduler">false</stringProp>
+        <stringProp name="ThreadGroup.same_user_on_next_iteration">true</stringProp>
+      </ThreadGroup>
+      <hashTree>
+        <ConstantThroughputTimer guiclass="TestBeanGUI" testclass="ConstantThroughputTimer" testname="Target 100 queries/s" enabled="true">
+          <stringProp name="throughput">6000</stringProp>
+          <intProp name="calcMode">4</intProp>
+        </ConstantThroughputTimer>
+        <hashTree />
+        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="${phase}" enabled="true">
+          <stringProp name="dataSource">catalog</stringProp>
+          <stringProp name="queryType">Prepared Select Statement</stringProp>
+          <stringProp name="query">SELECT products.category_id, products.title, products.brand, products.description,
+       products.active, products.version, products.id, products.created_at, products.shop_id
+FROM products JOIN shops ON shops.id = products.shop_id
+WHERE products.active IS TRUE AND shops.status = 'active'
+  AND products.category_id = ?::uuid AND products.id &gt; ?::uuid
+  AND EXISTS (SELECT skus.id FROM skus WHERE skus.product_id = products.id
+              AND skus.active IS TRUE AND skus.price_fen BETWEEN 0 AND 100000000
+              AND skus.attributes @&gt; '{}'::jsonb)
+ORDER BY products.id LIMIT 21</stringProp>
+          <stringProp name="queryArguments">${category},${cursor}</stringProp>
+          <stringProp name="queryArgumentsTypes">VARCHAR,VARCHAR</stringProp>
+          <stringProp name="variableNames" />
+          <stringProp name="resultVariable">rows</stringProp>
+          <stringProp name="queryTimeout">10</stringProp>
+          <stringProp name="resultSetHandler">Store As Object</stringProp>
+          <stringProp name="resultSetMaxRows">-1</stringProp>
+        </JDBCSampler>
+        <hashTree>
+          <BeanShellPreProcessor guiclass="TestBeanGUI" testclass="BeanShellPreProcessor" testname="Deterministic category and cursor" enabled="true">
+            <stringProp name="script">int iteration = vars.getIteration() - 1;
+int n = iteration * 10 + ctx.getThreadNum();
+byte[] digest = java.security.MessageDigest.getInstance("MD5").digest(("category-" + (n % 100)).getBytes("UTF-8"));
+String hex = "";
+for (int i = 0; i &lt; digest.length; i++) hex += Integer.toHexString((digest[i] &amp; 255) | 256).substring(1);
+vars.put("category", hex.substring(0,8)+"-"+hex.substring(8,12)+"-"+hex.substring(12,16)+"-"+hex.substring(16,20)+"-"+hex.substring(20));
+String[] cursors = {"00000000-0000-0000-0000-000000000000", "55555555-5555-5555-5555-555555555555", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"};
+vars.put("cursor", cursors[(n / 100) % 3]);
+vars.put("phase", iteration &lt; 50 ? "warmup" : "category_query");</stringProp>
+            <stringProp name="parameters" />
+            <stringProp name="filename" />
+            <stringProp name="resetInterpreter">false</stringProp>
+          </BeanShellPreProcessor>
+          <hashTree />
+          <BeanShellAssertion guiclass="BeanShellAssertionGui" testclass="BeanShellAssertion" testname="Require 21 rows" enabled="true">
+            <stringProp name="BeanShellAssertion.query">Object rows = vars.getObject("rows");
+if (rows == null || rows.size() != 21) {
+    Failure = true;
+    FailureMessage = "Expected 21 catalog rows; category=" + vars.get("category") + "; cursor=" + vars.get("cursor") + "; row count=" + (rows == null ? "null" : rows.size());
+}</stringProp>
+            <stringProp name="BeanShellAssertion.parameters" />
+            <stringProp name="BeanShellAssertion.filename" />
+            <stringProp name="BeanShellAssertion.resetInterpreter">false</stringProp>
+          </BeanShellAssertion>
+          <hashTree />
+        </hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

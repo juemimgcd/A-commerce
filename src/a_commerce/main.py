@@ -144,7 +144,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise CommerceError("DRAINING", "当前实例正在退出。", 503, True)
         async with request.app.state.resources.sessions() as session:
             revision = await session.scalar(text("SELECT version_num FROM alembic_version"))
-        if revision != "0010_merchant_ops":
+        if revision != "0011_catalog_category_index":
             raise CommerceError("MIGRATION_REQUIRED", "数据库迁移版本不匹配。", 503)
         return {"status": "ready", "revision": revision}
 
